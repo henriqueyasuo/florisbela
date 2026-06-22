@@ -1491,18 +1491,39 @@ function removeFoto(){setFotoPreview('');}
 
 // ===== IMPORTAR CONTATO (Contact Picker API) =====
 async function importarContato(){
-  // Check Contact Picker API support
-  if(!('contacts' in navigator) || !('ContactsManager' in window)){
-    // Fallback: show instructions
-    toast('Seu navegador não suporta seleção direta. Use Chrome no Android ou Safari iOS 14.5+.');
+  // Diagnóstico detalhado de suporte
+  var temContacts = 'contacts' in navigator;
+  var temSelect = temContacts && typeof navigator.contacts.select === 'function';
+  console.log('Contact Picker diagnóstico:', {
+    temContacts, temSelect,
+    ua: navigator.userAgent,
+    standalone: navigator.standalone,
+    protocol: location.protocol
+  });
+
+  if(!temContacts || !temSelect){
+    // Mostra diagnóstico útil
+    var ua = navigator.userAgent;
+    var isIOS = /iPad|iPhone|iPod/.test(ua);
+    var isSafari = /Safari/.test(ua) && !/Chrome/.test(ua);
+    var isHTTPS = location.protocol === 'https:';
+    var isStandalone = navigator.standalone === true;
+    var msg = '';
+    if(!isHTTPS) msg = 'O app precisa estar em HTTPS para usar contatos.';
+    else if(isIOS && !isSafari) msg = 'No iPhone, abra pelo Safari (não Chrome).';
+    else if(isIOS) msg = 'Contatos não disponível. Verifique se seu iOS é 14.5 ou superior.';
+    else msg = 'Navegador não suporta. Use Chrome no Android ou Safari no iPhone.';
+    toast(msg);
     return;
   }
+
   try{
-    var props=['name','tel','address'];
-    // Check which properties are available
-    var supported = await navigator.contacts.getProperties();
-    var toRequest = props.filter(p=>supported.includes(p));
-    if(!toRequest.includes('name')) toRequest.push('name');
+    var toRequest = ['name','tel','address'];
+    try{
+      var supported = await navigator.contacts.getProperties();
+      toRequest = ['name','tel','address'].filter(p=>supported.includes(p));
+      if(!toRequest.includes('name')) toRequest.push('name');
+    }catch(_){}
 
     var contacts = await navigator.contacts.select(toRequest, {multiple:false});
     if(!contacts||!contacts.length) return;
