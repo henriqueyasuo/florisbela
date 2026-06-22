@@ -234,6 +234,20 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
 .gestao-item:active,.gestao-item.active{background:var(--accent-light);border-color:var(--accent);color:var(--accent)}
 
 
+
+/* PEDIDO CAT TABS */
+.pd-cat-tab{padding:6px 14px;border-radius:20px;border:0.5px solid var(--border2);background:transparent;cursor:pointer;font-size:12px;font-weight:500;color:var(--text2);font-family:inherit;transition:all 0.15s}
+.pd-cat-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+/* PEDIDO PRODUTO CARD */
+.pd-prod-card{display:flex;align-items:center;gap:10px;padding:9px 10px;border:0.5px solid var(--border);border-radius:var(--radius);background:var(--bg2);cursor:pointer;transition:all 0.15s;position:relative}
+.pd-prod-card:active{background:var(--accent-light);border-color:var(--accent)}
+.pd-prod-card.selected{background:var(--accent-light);border-color:var(--accent)}
+.pd-prod-qty-badge{position:absolute;top:-6px;right:-6px;background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+/* CLIENTE SEARCH LIST */
+.pd-cliente-item{padding:10px 12px;cursor:pointer;font-size:14px;border-bottom:0.5px solid var(--border);transition:background 0.1s}
+.pd-cliente-item:last-child{border-bottom:none}
+.pd-cliente-item:active{background:var(--bg2)}
+
 .price{font-variant-numeric:tabular-nums}
 </style>
 </head>
@@ -515,17 +529,40 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
   <input type="hidden" id="pd-id" />
   <input type="hidden" id="pd-status" value="pendente" />
   <div class="form-group"><label class="form-label">Cliente *</label>
-    <select class="form-input" id="pd-cliente"><option value="">Selecionar cliente...</option></select>
+    <input class="form-input" id="pd-cliente-search" placeholder="Digite o nome para buscar..." oninput="filtrarClientesPedido(this.value)" autocomplete="off" />
+    <input type="hidden" id="pd-cliente" />
+    <div id="pd-cliente-lista" style="display:none;border:0.5px solid var(--border2);border-radius:var(--radius);margin-top:4px;background:var(--bg);max-height:180px;overflow-y:auto;box-shadow:var(--shadow)"></div>
+    <div id="pd-cliente-selecionado" style="display:none;margin-top:6px;padding:8px 10px;background:var(--accent-light);border-radius:var(--radius);font-size:13px;display:flex;align-items:center;justify-content:space-between">
+      <span id="pd-cliente-nome" style="font-weight:600;color:var(--accent)"></span>
+      <button onclick="limparClientePedido()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0"><i class="ti ti-x"></i></button>
+    </div>
   </div>
   <div class="form-group"><label class="form-label">Data de entrega</label>
     <input class="form-input" id="pd-data" type="date" />
   </div>
   <div class="form-group">
     <label class="form-label" style="margin-bottom:8px">Produtos</label>
-    <div id="pd-produtos-list"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="pd-cat-tabs">
+      <button class="pd-cat-tab active" onclick="setPdCat('pizza',this)">🍕 Pizzas</button>
+      <button class="pd-cat-tab" onclick="setPdCat('pao',this)">🍞 Pães</button>
+      <button class="pd-cat-tab" onclick="setPdCat('outro',this)">✨ Outros</button>
+    </div>
+    <div id="pd-produtos-grid"></div>
   </div>
   <div class="order-summary" id="pd-summary"></div>
-  <div class="form-group" style="margin-top:12px"><label class="form-label">Observações</label>
+  <div class="form-group" style="margin-top:12px">
+    <label class="toggle-row" for="pd-pago">
+      <span>
+        <span style="font-size:14px;font-weight:500">Pago</span><br>
+        <span style="font-size:12px;color:var(--text2)">Marque se o pagamento já foi recebido</span>
+      </span>
+      <div class="toggle-wrap">
+        <input type="checkbox" id="pd-pago" class="toggle-input" />
+        <span class="toggle-slider"></span>
+      </div>
+    </label>
+  </div>
+  <div class="form-group"><label class="form-label">Observações</label>
     <textarea class="form-input" id="pd-obs" placeholder="Endereço, horário de entrega..."></textarea>
   </div>
   <div style="display:flex;gap:8px;margin-top:4px">
@@ -624,7 +661,7 @@ async function loadDB(){
     }));
     db.pedidos = pedidos.map(r=>({
       id:r.id, numero:r.numero||null, clienteId:r.cliente_id, data:r.data,
-      itens:r.itens||[], status:r.status||'pendente',
+      itens:r.itens||[], status:r.status||'pendente', pago:!!r.pago,
       obs:r.obs||'', total:+r.total||0
     }));
     hideLoading();
@@ -652,7 +689,7 @@ async function saveProduto(obj){
 async function savePedido(obj){
   await sbUpsert('pedidos',{
     id:obj.id, numero:obj.numero||null, cliente_id:obj.clienteId, data:obj.data,
-    itens:obj.itens, status:obj.status, obs:obj.obs||'', total:obj.total
+    itens:obj.itens, status:obj.status, pago:!!obj.pago, obs:obj.obs||'', total:obj.total
   });
 }
 
@@ -986,10 +1023,11 @@ function renderPedidos(filtro){
     var cl=getCliente(o.clienteId);
     var itens=o.itens.map(i=>{var p=getProduto(i.prodId);return i.qty+'× '+p.nome;}).join(', ');
     var d=o.data.split('-');
-    var numLabel=o.numero?`<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:20px">Nº ${o.numero}</span>`:'';
+    var numLabel=o.numero?`<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:20px">Nº ${o.numero}</span>`:''
+    var pagoLabel=o.pago?'<span style="font-size:11px;font-weight:600;color:var(--success);background:var(--success-bg);padding:2px 8px;border-radius:20px">Pago</span>':'<span style="font-size:11px;font-weight:600;color:var(--warn);background:var(--warn-bg);padding:2px 8px;border-radius:20px">Aguard. pgto</span>';
     return `<div class="card">
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;flex-wrap:wrap">
-        ${numLabel}${statusBadge(o.status)}
+        ${numLabel}${statusBadge(o.status)}${pagoLabel}
         <span class="card-name">${esc(cl.nome)}</span>
         <span style="font-size:12px;color:var(--text3);margin-left:auto">${d[2]+'/'+d[1]}</span>
       </div>
@@ -1000,6 +1038,7 @@ function renderPedidos(filtro){
         <div style="display:flex;gap:6px">
           ${o.status==='pendente'?`<button class="btn btn-secondary" style="padding:6px 11px;font-size:12px" onclick="marcarStatus('${o.id}','entregue')"><i class="ti ti-check"></i>Entregar</button>`:''}
           ${o.status==='pendente'?`<button class="btn btn-secondary" style="padding:6px 11px;font-size:12px;color:var(--danger);border-color:var(--danger)" onclick="marcarStatus('${o.id}','cancelado')"><i class="ti ti-x"></i></button>`:''}
+          <button class="btn-icon" aria-label="${o.pago?'Marcar como não pago':'Marcar como pago'}" onclick="togglePago('${o.id}')" style="color:${o.pago?'var(--success)':'var(--text3)'}"><i class="ti ti-currency-dollar"></i></button>
           <button class="btn-icon" aria-label="Editar pedido" onclick="editarPedido('${o.id}')" style="color:var(--text2)"><i class="ti ti-edit"></i></button>
           <button class="btn-icon" aria-label="Excluir" onclick="deletePedido('${o.id}')"><i class="ti ti-trash"></i></button>
         </div>
@@ -1020,7 +1059,7 @@ async function marcarStatus(id,status){
   if(!o)return;
   try{
     showLoading('Atualizando...');
-    await sbUpsert('pedidos',{id:o.id,cliente_id:o.clienteId,data:o.data,itens:o.itens,status,obs:o.obs||'',total:o.total});
+    await sbUpsert('pedidos',{id:o.id,numero:o.numero||null,cliente_id:o.clienteId,data:o.data,itens:o.itens,status,pago:!!o.pago,obs:o.obs||'',total:o.total});
     o.status=status;
     hideLoading();renderPedidos(pedidoFiltro);
     toast(status==='entregue'?'Marcado como entregue!':'Pedido cancelado.');
@@ -1038,9 +1077,24 @@ async function deletePedido(id){
   }catch(e){hideLoading();toast('Erro ao remover.');}
 }
 
+async function togglePago(id){
+  var o=db.pedidos.find(p=>p.id===id);
+  if(!o)return;
+  o.pago=!o.pago;
+  try{
+    await sbUpsert('pedidos',{id:o.id,numero:o.numero||null,cliente_id:o.clienteId,data:o.data,itens:o.itens,status:o.status,pago:o.pago,obs:o.obs||'',total:o.total});
+    renderPedidos(pedidoFiltro);
+    toast(o.pago?'Marcado como pago!':'Marcado como pendente.');
+  }catch(e){o.pago=!o.pago;toast('Erro ao atualizar.');}
+}
+
 function buildPedidoModal(pedido){
-  var sel=document.getElementById('pd-cliente');
-  sel.innerHTML='<option value="">Selecionar cliente...</option>'+db.clientes.map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+  document.getElementById('pd-cliente').value='';
+  document.getElementById('pd-cliente-search').value='';
+  document.getElementById('pd-cliente-lista').style.display='none';
+  document.getElementById('pd-cliente-selecionado').style.display='none';
+  pdCatAtual='pizza';
+  document.querySelectorAll('.pd-cat-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
   pedidoQtds={};
   db.produtos.forEach(p=>{pedidoQtds[p.id]=0;});
   if(pedido){
@@ -1049,12 +1103,13 @@ function buildPedidoModal(pedido){
     document.getElementById('pd-salvar-btn').innerHTML='<i class="ti ti-check"></i>Salvar alterações';
     document.getElementById('pd-id').value=pedido.id;
     document.getElementById('pd-status').value=pedido.status;
-    document.getElementById('pd-cliente').value=pedido.clienteId;
+    selecionarClientePedido(pedido.clienteId);
     document.getElementById('pd-data').value=pedido.data;
     document.getElementById('pd-obs').value=pedido.obs||'';
     var badge=document.getElementById('pd-numero-badge');
     if(pedido.numero){badge.textContent='Nº '+pedido.numero;badge.style.display='inline-block';}
     else badge.style.display='none';
+    document.getElementById('pd-pago').checked=!!pedido.pago;
     // restore quantities
     pedido.itens.forEach(i=>{pedidoQtds[i.prodId]=i.qty;});
   } else {
@@ -1065,6 +1120,7 @@ function buildPedidoModal(pedido){
     document.getElementById('pd-status').value='pendente';
     document.getElementById('pd-data').value=fmtDate(new Date());
     document.getElementById('pd-obs').value='';
+    document.getElementById('pd-pago').checked=false;
     document.getElementById('pd-numero-badge').style.display='none';
   }
   renderPedidoItems();
@@ -1077,22 +1133,67 @@ function editarPedido(id){
   document.getElementById('modal-pedido').classList.add('open');
 }
 
-function renderPedidoItems(){
-  var el=document.getElementById('pd-produtos-list');
-  if(!db.produtos.length){el.innerHTML='<div style="color:var(--text2);font-size:13px;padding:8px 0">Nenhum produto cadastrado ainda.</div>';updatePedidoSummary();return;}
-  el.innerHTML=db.produtos.map(p=>`<div class="order-item-row">
-    <div style="flex:1;font-size:13px;line-height:1.3">${catTag(p.cat)} <strong>${esc(p.nome)}</strong><br><span style="color:var(--accent);font-weight:600">${fmtBRL(p.preco)}</span></div>
-    <button class="qty-btn" onclick="changeQty('${p.id}',-1)" aria-label="Diminuir">−</button>
-    <span class="qty-display" id="qty-${p.id}">${pedidoQtds[p.id]}</span>
-    <button class="qty-btn" onclick="changeQty('${p.id}',1)" aria-label="Aumentar">+</button>
-  </div>`).join('');
+var pdCatAtual='pizza';
+
+function setPdCat(cat,btn){
+  pdCatAtual=cat;
+  document.querySelectorAll('.pd-cat-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  renderPedidoGrid();
+}
+
+function renderPedidoItems(){ renderPedidoGrid(); }
+
+function renderPedidoGrid(){
+  var el=document.getElementById('pd-produtos-grid');
+  var list=db.produtos.filter(p=>p.cat===pdCatAtual);
+  if(!list.length){
+    el.innerHTML='<div style="color:var(--text2);font-size:13px;padding:10px 0;text-align:center">Nenhum produto nesta categoria.</div>';
+    updatePedidoSummary();return;
+  }
+  el.innerHTML=list.map(p=>{
+    var qty=pedidoQtds[p.id]||0;
+    var thumb=p.foto?`<img src="${p.foto}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0" loading="lazy">`:'';
+    return `<div class="pd-prod-card${qty>0?' selected':''}" id="pdcard-${p.id}" onclick="toggleProdPedido('${p.id}')">
+      ${thumb}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;line-height:1.2">${esc(p.nome)}</div>
+        <div style="font-size:12px;color:var(--accent);font-weight:600;margin-top:2px">${fmtBRL(p.preco)}/${esc(p.unidade||'un')}</div>
+      </div>
+      ${qty>0?`<div class="pd-prod-qty-badge" id="qdg-${p.id}">${qty}</div>`:`<div class="pd-prod-qty-badge" id="qdg-${p.id}" style="display:none">${qty}</div>`}
+    </div>`;
+  }).join('');
+  updatePedidoSummary();
+}
+
+function toggleProdPedido(id){
+  var qty=pedidoQtds[id]||0;
+  if(qty===0){
+    pedidoQtds[id]=1;
+  } else {
+    // cycle: 1→2→3→...→remove (long press would remove, tap adds)
+    pedidoQtds[id]=qty+1;
+  }
+  // update card badge
+  var card=document.getElementById('pdcard-'+id);
+  var badge=document.getElementById('qdg-'+id);
+  if(card){card.classList.add('selected');}
+  if(badge){badge.textContent=pedidoQtds[id];badge.style.display='flex';}
+  updatePedidoSummary();
+}
+
+function removerProdPedido(id,e){
+  e.stopPropagation();
+  pedidoQtds[id]=0;
+  var card=document.getElementById('pdcard-'+id);
+  var badge=document.getElementById('qdg-'+id);
+  if(card)card.classList.remove('selected');
+  if(badge)badge.style.display='none';
   updatePedidoSummary();
 }
 
 function changeQty(id,delta){
   pedidoQtds[id]=Math.max(0,(pedidoQtds[id]||0)+delta);
-  var el=document.getElementById('qty-'+id);
-  if(el)el.textContent=pedidoQtds[id];
   updatePedidoSummary();
 }
 
@@ -1116,7 +1217,7 @@ async function salvarPedido(){
   if(existingId){
     // editing
     var existing=db.pedidos.find(p=>p.id===existingId);
-    var obj=Object.assign({},existing,{clienteId,data:document.getElementById('pd-data').value,itens,obs:document.getElementById('pd-obs').value.trim(),total:Math.round(total*100)/100});
+    var obj=Object.assign({},existing,{clienteId,data:document.getElementById('pd-data').value,itens,pago:document.getElementById('pd-pago').checked,obs:document.getElementById('pd-obs').value.trim(),total:Math.round(total*100)/100});
     try{
       showLoading('Salvando alterações...');
       await savePedido(obj);
@@ -1128,7 +1229,7 @@ async function salvarPedido(){
   } else {
     // new pedido — generate numero
     var maxNum=db.pedidos.reduce((m,p)=>Math.max(m,p.numero||0),0);
-    var obj={id:uid(),numero:maxNum+1,clienteId,data:document.getElementById('pd-data').value,itens,status:'pendente',obs:document.getElementById('pd-obs').value.trim(),total:Math.round(total*100)/100};
+    var obj={id:uid(),numero:maxNum+1,clienteId,data:document.getElementById('pd-data').value,itens,status:'pendente',pago:document.getElementById('pd-pago').checked,obs:document.getElementById('pd-obs').value.trim(),total:Math.round(total*100)/100};
     try{
       showLoading('Registrando pedido...');
       await savePedido(obj);
@@ -1372,6 +1473,45 @@ function onFotoChange(e){
 
 function removeFoto(){setFotoPreview('');}
 
+
+
+// ===== BUSCA CLIENTE NO PEDIDO =====
+function filtrarClientesPedido(q){
+  var lista=document.getElementById('pd-cliente-lista');
+  var selecionado=document.getElementById('pd-cliente-selecionado');
+  // Clear selection if user is typing again
+  document.getElementById('pd-cliente').value='';
+  selecionado.style.display='none';
+  if(!q||q.length<1){lista.style.display='none';return;}
+  var r=db.clientes.filter(c=>c.nome.toLowerCase().includes(q.toLowerCase()));
+  if(!r.length){
+    lista.innerHTML='<div class="pd-cliente-item" style="color:var(--text3)">Nenhum cliente encontrado</div>';
+    lista.style.display='block';return;
+  }
+  lista.innerHTML=r.map(c=>`<div class="pd-cliente-item" onclick="selecionarClientePedido('${c.id}')">
+    <div style="font-weight:500">${esc(c.nome)}</div>
+    ${c.tel?'<div style="font-size:12px;color:var(--text2)">'+esc(c.tel)+'</div>':''}
+  </div>`).join('');
+  lista.style.display='block';
+}
+
+function selecionarClientePedido(id){
+  var c=db.clientes.find(x=>x.id===id);
+  if(!c)return;
+  document.getElementById('pd-cliente').value=id;
+  document.getElementById('pd-cliente-search').value='';
+  document.getElementById('pd-cliente-lista').style.display='none';
+  var sel=document.getElementById('pd-cliente-selecionado');
+  sel.style.display='flex';
+  document.getElementById('pd-cliente-nome').textContent=c.nome+(c.tel?' · '+c.tel:'');
+}
+
+function limparClientePedido(){
+  document.getElementById('pd-cliente').value='';
+  document.getElementById('pd-cliente-search').value='';
+  document.getElementById('pd-cliente-lista').style.display='none';
+  document.getElementById('pd-cliente-selecionado').style.display='none';
+}
 
 // ===== TOGGLE OCULTO =====
 async function toggleOculto(id){
