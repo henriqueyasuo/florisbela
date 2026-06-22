@@ -443,13 +443,22 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
 <div id="modal-cliente" class="modal-overlay" onclick="onOverlayClick(event,'modal-cliente')">
 <div class="modal">
   <div class="modal-handle"></div>
-  <div class="modal-title" id="modal-cliente-title">Novo cliente</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div class="modal-title" id="modal-cliente-title" style="margin-bottom:0">Novo cliente</div>
+    <button class="btn btn-secondary" id="cl-contato-btn" onclick="importarContato()" style="padding:7px 11px;font-size:12px;gap:6px">
+      <i class="ti ti-address-book" style="font-size:16px"></i>Importar contato
+    </button>
+  </div>
+  <div id="cl-contato-preview" style="display:none;background:var(--bg2);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;font-size:13px;color:var(--text2)">
+    <i class="ti ti-check" style="color:var(--success);margin-right:4px"></i>Dados importados do contato. Confira e salve.
+  </div>
   <input type="hidden" id="cl-id" />
   <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="cl-nome" placeholder="Nome completo" /></div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Telefone / WhatsApp</label><input class="form-input" id="cl-tel" type="tel" placeholder="(17) 99999-9999" /></div>
     <div class="form-group"><label class="form-label">Bairro / Referência</label><input class="form-input" id="cl-bairro" placeholder="Centro..." /></div>
   </div>
+  <div class="form-group"><label class="form-label">Endereço</label><input class="form-input" id="cl-endereco" placeholder="Rua, número..." /></div>
   <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" id="cl-obs" placeholder="Preferências, restrições..."></textarea></div>
   <div style="display:flex;gap:8px;margin-top:4px">
     <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-cliente')">Cancelar</button>
@@ -652,7 +661,7 @@ async function loadDB(){
       sbGet('pedidos','data.desc,criado_em.desc')
     ]);
     db.clientes = clientes.map(r=>({
-      id:r.id, nome:r.nome, tel:r.tel||'', bairro:r.bairro||'', obs:r.obs||''
+      id:r.id, nome:r.nome, tel:r.tel||'', bairro:r.bairro||'', endereco:r.endereco||'', obs:r.obs||''
     }));
     db.produtos = produtos.map(r=>({
       id:r.id, nome:r.nome, cat:r.cat||'outro', preco:+r.preco||0,
@@ -674,7 +683,7 @@ async function loadDB(){
 async function saveCliente(obj){
   await sbUpsert('clientes',{
     id:obj.id, nome:obj.nome, tel:obj.tel||'',
-    bairro:obj.bairro||'', obs:obj.obs||''
+    bairro:obj.bairro||'', endereco:obj.endereco||'', obs:obj.obs||''
   });
 }
 
@@ -814,7 +823,8 @@ function openModal(id,mode){
   if(id==='modal-cliente'&&mode==='new'){
     document.getElementById('modal-cliente-title').textContent='Novo cliente';
     document.getElementById('cl-id').value='';
-    ['cl-nome','cl-tel','cl-bairro','cl-obs'].forEach(i=>document.getElementById(i).value='');
+    ['cl-nome','cl-tel','cl-bairro','cl-endereco','cl-obs'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('cl-contato-preview').style.display='none';
   }
   if(id==='modal-produto'&&mode==='new'){
     document.getElementById('modal-produto-title').textContent='Novo produto';
@@ -837,7 +847,9 @@ function openModalEdit(id,mode,data){
     document.getElementById('cl-nome').value=data.nome;
     document.getElementById('cl-tel').value=data.tel||'';
     document.getElementById('cl-bairro').value=data.bairro||'';
+    document.getElementById('cl-endereco').value=data.endereco||'';
     document.getElementById('cl-obs').value=data.obs||'';
+    document.getElementById('cl-contato-preview').style.display='none';
   }
   if(id==='modal-produto'){
     document.getElementById('modal-produto-title').textContent='Editar produto';
@@ -881,6 +893,7 @@ function renderClientes(list){
       <div style="flex:1">
         <div class="card-name">${esc(c.nome)}</div>
         <div class="card-sub">${esc(c.tel||'Sem telefone')}${c.bairro?' · '+esc(c.bairro):''}</div>
+        ${c.endereco?'<div class="card-sub"><i class="ti ti-map-pin" style="font-size:12px;vertical-align:-1px"></i> '+esc(c.endereco)+'</div>':''}
         ${c.obs?'<div class="card-sub">'+esc(c.obs)+'</div>':''}
       </div>
       <div class="card-actions">
@@ -901,7 +914,7 @@ async function salvarCliente(){
   var nome=document.getElementById('cl-nome').value.trim();
   if(!nome){toast('Nome é obrigatório');return;}
   var id=document.getElementById('cl-id').value;
-  var obj={id:id||uid(),nome,tel:document.getElementById('cl-tel').value.replace(/\D/g,''),bairro:document.getElementById('cl-bairro').value.trim(),obs:document.getElementById('cl-obs').value.trim()};
+  var obj={id:id||uid(),nome,tel:document.getElementById('cl-tel').value.replace(/\D/g,''),bairro:document.getElementById('cl-bairro').value.trim(),endereco:document.getElementById('cl-endereco').value.trim(),obs:document.getElementById('cl-obs').value.trim()};
   try{
     showLoading('Salvando...');
     await saveCliente(obj);
@@ -1474,6 +1487,63 @@ function onFotoChange(e){
 function removeFoto(){setFotoPreview('');}
 
 
+
+
+// ===== IMPORTAR CONTATO (Contact Picker API) =====
+async function importarContato(){
+  // Check Contact Picker API support
+  if(!('contacts' in navigator) || !('ContactsManager' in window)){
+    // Fallback: show instructions
+    toast('Seu navegador não suporta seleção direta. Use Chrome no Android ou Safari iOS 14.5+.');
+    return;
+  }
+  try{
+    var props=['name','tel','address'];
+    // Check which properties are available
+    var supported = await navigator.contacts.getProperties();
+    var toRequest = props.filter(p=>supported.includes(p));
+    if(!toRequest.includes('name')) toRequest.push('name');
+
+    var contacts = await navigator.contacts.select(toRequest, {multiple:false});
+    if(!contacts||!contacts.length) return;
+
+    var c = contacts[0];
+
+    // Fill name
+    var nome = (c.name&&c.name[0]) ? c.name[0].trim() : '';
+    if(nome) document.getElementById('cl-nome').value = nome;
+
+    // Fill phone — take first number, keep only digits
+    if(c.tel && c.tel.length){
+      var tel = c.tel[0].replace(/\D/g,'');
+      // Remove country code 55 if starts with it and is too long
+      if(tel.startsWith('55') && tel.length > 11) tel = tel.slice(2);
+      document.getElementById('cl-tel').value = tel;
+    }
+
+    // Fill address if available
+    if(c.address && c.address.length){
+      var addr = c.address[0];
+      var parts = [];
+      if(addr.addressLine && addr.addressLine[0]) parts.push(addr.addressLine[0]);
+      if(addr.streetAddress) parts.push(addr.streetAddress);
+      var enderecoStr = parts.filter(Boolean).join(', ');
+      if(enderecoStr) document.getElementById('cl-endereco').value = enderecoStr;
+
+      // Try to fill bairro from neighborhood/city
+      var bairro = addr.city || addr.region || '';
+      if(bairro) document.getElementById('cl-bairro').value = bairro;
+    }
+
+    // Show confirmation banner
+    document.getElementById('cl-contato-preview').style.display = 'block';
+
+  }catch(e){
+    if(e.name === 'AbortError') return; // user cancelled
+    console.error('Contact picker error:', e);
+    toast('Não foi possível acessar os contatos: '+e.message);
+  }
+}
 
 // ===== BUSCA CLIENTE NO PEDIDO =====
 function filtrarClientesPedido(q){
