@@ -227,6 +227,20 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
 .lock-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.2);transition:background 0.2s}
 .lock-dot.active{background:#c8701a}
 
+
+/* GESTÃO SUBMENU */
+.gestao-item{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 8px;border-radius:var(--radius-lg);border:0.5px solid var(--border);background:var(--bg2);cursor:pointer;font-size:11px;font-weight:500;color:var(--text2);font-family:inherit;transition:all 0.15s}
+.gestao-item i{font-size:22px}
+.gestao-item:active,.gestao-item.active{background:var(--accent-light);border-color:var(--accent);color:var(--accent)}
+
+/* SWIPE INDICATOR */
+.swipe-hint{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.55);color:#fff;font-size:11px;padding:5px 12px;border-radius:20px;pointer-events:none;opacity:0;transition:opacity 0.3s;z-index:39;white-space:nowrap}
+.swipe-hint.show{opacity:1}
+
+/* PAGE TRANSITION */
+.content{transition:opacity 0.18s ease}
+.content.transitioning{opacity:0}
+
 .price{font-variant-numeric:tabular-nums}
 </style>
 </head>
@@ -378,22 +392,36 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
   <i class="ti ti-plus"></i>
 </button>
 
+<!-- GESTÃO SUBMENU -->
+<div id="gestao-menu" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:600px;z-index:49">
+  <div style="background:var(--bg);border-top:0.5px solid var(--border);padding:10px 16px 10px;padding-bottom:calc(10px + env(safe-area-inset-bottom))">
+    <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;text-align:center">Gestão</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <button class="gestao-item" id="gestao-clientes" onclick="showPageFromGestao('clientes')">
+        <i class="ti ti-users" aria-hidden="true"></i><span>Clientes</span>
+      </button>
+      <button class="gestao-item" id="gestao-produtos" onclick="showPageFromGestao('produtos')">
+        <i class="ti ti-bread" aria-hidden="true"></i><span>Produtos</span>
+      </button>
+      <button class="gestao-item" id="gestao-relatorios" onclick="showPageFromGestao('relatorios')">
+        <i class="ti ti-chart-bar" aria-hidden="true"></i><span>Relatórios</span>
+      </button>
+    </div>
+  </div>
+</div>
+<!-- GESTAO BACKDROP -->
+<div id="gestao-backdrop" style="display:none;position:fixed;inset:0;z-index:48" onclick="closeGestaoMenu()"></div>
+
 <!-- BOTTOM NAV -->
 <nav class="bottom-nav" aria-label="Navegação principal">
   <button class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
     <i class="ti ti-layout-dashboard" aria-hidden="true"></i>Início
   </button>
-  <button class="nav-item" onclick="showPage('clientes')" id="nav-clientes">
-    <i class="ti ti-users" aria-hidden="true"></i>Clientes
-  </button>
-  <button class="nav-item" onclick="showPage('produtos')" id="nav-produtos">
-    <i class="ti ti-bread" aria-hidden="true"></i>Produtos
+  <button class="nav-item" onclick="toggleGestaoMenu()" id="nav-gestao">
+    <i class="ti ti-layout-grid" aria-hidden="true"></i>Gestão
   </button>
   <button class="nav-item" onclick="showPage('pedidos')" id="nav-pedidos">
     <i class="ti ti-shopping-cart" aria-hidden="true"></i>Pedidos
-  </button>
-  <button class="nav-item" onclick="showPage('relatorios')" id="nav-relatorios">
-    <i class="ti ti-chart-bar" aria-hidden="true"></i>Relatórios
   </button>
   <button class="nav-item" onclick="showPage('cardapio')" id="nav-cardapio">
     <i class="ti ti-list" aria-hidden="true"></i>Cardápio
@@ -403,6 +431,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+<div class="swipe-hint" id="swipe-hint"></div>
 
 <!-- MODAL CLIENTE -->
 <div id="modal-cliente" class="modal-overlay" onclick="onOverlayClick(event,'modal-cliente')">
@@ -660,14 +689,46 @@ function confirmResolve(v){
 function onOverlayClick(e,id){if(e.target===e.currentTarget)closeModal(id);}
 
 // ===== NAVIGATION =====
-function showPage(p){
+// Main nav order for swipe
+var NAV_ORDER = ['dashboard','gestao','pedidos','cardapio'];
+// Gestao sub-pages
+var GESTAO_PAGES = ['clientes','produtos','relatorios'];
+// History stack for back swipe
+var pageHistory = [];
+
+function isGestaoPage(p){ return GESTAO_PAGES.includes(p); }
+
+function showPage(p, addHistory){
+  // Close gestao menu if open
+  closeGestaoMenu();
+
+  var prev = currentPage;
+  if(addHistory !== false && prev && prev !== p){
+    pageHistory.push(prev);
+    if(pageHistory.length > 20) pageHistory.shift();
+  }
+
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.gestao-item').forEach(el=>el.classList.remove('active'));
+
   document.getElementById('page-'+p).classList.add('active');
-  document.getElementById('nav-'+p).classList.add('active');
-  currentPage=p;
-  // update FAB visibility
-  document.getElementById('fab-btn').style.display=(p==='relatorios'||p==='cardapio')?'none':'flex';
+  currentPage = p;
+
+  // Highlight correct nav item
+  if(isGestaoPage(p)){
+    document.getElementById('nav-gestao').classList.add('active');
+    var gi = document.getElementById('gestao-'+p);
+    if(gi) gi.classList.add('active');
+  } else {
+    var navEl = document.getElementById('nav-'+p);
+    if(navEl) navEl.classList.add('active');
+  }
+
+  // FAB visibility
+  var noFab = ['relatorios','cardapio','dashboard'];
+  document.getElementById('fab-btn').style.display = noFab.includes(p) ? 'none' : 'flex';
+
   if(p==='clientes')renderClientes(db.clientes);
   if(p==='produtos')renderProdutos(produtoFiltro);
   if(p==='pedidos')renderPedidos(pedidoFiltro);
@@ -676,12 +737,104 @@ function showPage(p){
   if(p==='cardapio')renderCardapioPreview();
 }
 
+function goBack(){
+  if(pageHistory.length){
+    var prev = pageHistory.pop();
+    showPage(prev, false);
+  }
+}
+
+// Gestao menu
+function toggleGestaoMenu(){
+  var menu = document.getElementById('gestao-menu');
+  var backdrop = document.getElementById('gestao-backdrop');
+  var isOpen = menu.style.display !== 'none';
+  if(isOpen){
+    closeGestaoMenu();
+  } else {
+    menu.style.display = 'block';
+    backdrop.style.display = 'block';
+    document.getElementById('nav-gestao').classList.add('active');
+  }
+}
+
+function closeGestaoMenu(){
+  document.getElementById('gestao-menu').style.display = 'none';
+  document.getElementById('gestao-backdrop').style.display = 'none';
+  // Keep gestao nav highlighted if on a gestao page
+  if(!isGestaoPage(currentPage)){
+    document.getElementById('nav-gestao').classList.remove('active');
+  }
+}
+
+function showPageFromGestao(p){
+  closeGestaoMenu();
+  showPage(p);
+}
+
 function onFabClick(){
   if(currentPage==='clientes')openModal('modal-cliente','new');
   else if(currentPage==='produtos')openModal('modal-produto','new');
   else if(currentPage==='pedidos')openModal('modal-pedido','new');
   else openModal('modal-pedido','new');
 }
+
+// ===== SWIPE GESTURES =====
+(function(){
+  var touchStartX=0, touchStartY=0, touchStartTime=0;
+  var SWIPE_MIN=60, SWIPE_MAX_Y=80, SWIPE_MAX_MS=400;
+  var NAV_ZONE_HEIGHT=80; // px from bottom for nav swipe
+
+  // Get current main-nav index
+  function mainNavIndex(){
+    var p = currentPage;
+    if(isGestaoPage(p)) p='gestao';
+    return NAV_ORDER.indexOf(p);
+  }
+
+  document.addEventListener('touchstart', function(e){
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchStartTime = Date.now();
+  }, {passive:true});
+
+  document.addEventListener('touchend', function(e){
+    // Ignore if a modal is open
+    if(document.querySelector('.modal-overlay.open')) return;
+    if(document.getElementById('lock-screen') && !document.getElementById('lock-screen').classList.contains('hidden')) return;
+
+    var dx = e.changedTouches[0].clientX - touchStartX;
+    var dy = e.changedTouches[0].clientY - touchStartY;
+    var dt = Date.now() - touchStartTime;
+    var fromBottom = window.innerHeight - touchStartY;
+    var isNavSwipe = fromBottom < NAV_ZONE_HEIGHT;
+
+    if(Math.abs(dx) < SWIPE_MIN) return;
+    if(Math.abs(dy) > SWIPE_MAX_Y) return;
+    if(dt > SWIPE_MAX_MS) return;
+
+    if(isNavSwipe){
+      // Swipe on nav bar: navigate between 4 main tabs
+      var idx = mainNavIndex();
+      if(dx < 0 && idx < NAV_ORDER.length-1){
+        // swipe left → next tab
+        var next = NAV_ORDER[idx+1];
+        if(next==='gestao') toggleGestaoMenu();
+        else showPage(next);
+      } else if(dx > 0 && idx > 0){
+        // swipe right → prev tab
+        var prev2 = NAV_ORDER[idx-1];
+        if(prev2==='gestao') toggleGestaoMenu();
+        else showPage(prev2);
+      }
+    } else {
+      // Swipe on content: left = back
+      if(dx > SWIPE_MIN && pageHistory.length){
+        goBack();
+      }
+    }
+  }, {passive:true});
+})();
 
 function openModal(id,mode){
   if(id==='modal-pedido')buildPedidoModal();
