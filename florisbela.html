@@ -986,9 +986,10 @@ function renderPedidos(filtro){
     var cl=getCliente(o.clienteId);
     var itens=o.itens.map(i=>{var p=getProduto(i.prodId);return i.qty+'× '+p.nome;}).join(', ');
     var d=o.data.split('-');
+    var numLabel=o.numero?`<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:20px">Nº ${o.numero}</span>`:'';
     return `<div class="card">
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
-        ${statusBadge(o.status)}
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;flex-wrap:wrap">
+        ${numLabel}${statusBadge(o.status)}
         <span class="card-name">${esc(cl.nome)}</span>
         <span style="font-size:12px;color:var(--text3);margin-left:auto">${d[2]+'/'+d[1]}</span>
       </div>
@@ -999,6 +1000,7 @@ function renderPedidos(filtro){
         <div style="display:flex;gap:6px">
           ${o.status==='pendente'?`<button class="btn btn-secondary" style="padding:6px 11px;font-size:12px" onclick="marcarStatus('${o.id}','entregue')"><i class="ti ti-check"></i>Entregar</button>`:''}
           ${o.status==='pendente'?`<button class="btn btn-secondary" style="padding:6px 11px;font-size:12px;color:var(--danger);border-color:var(--danger)" onclick="marcarStatus('${o.id}','cancelado')"><i class="ti ti-x"></i></button>`:''}
+          <button class="btn-icon" aria-label="Editar pedido" onclick="editarPedido('${o.id}')" style="color:var(--text2)"><i class="ti ti-edit"></i></button>
           <button class="btn-icon" aria-label="Excluir" onclick="deletePedido('${o.id}')"><i class="ti ti-trash"></i></button>
         </div>
       </div>
