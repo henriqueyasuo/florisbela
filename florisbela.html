@@ -233,13 +233,6 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
 .gestao-item i{font-size:22px}
 .gestao-item:active,.gestao-item.active{background:var(--accent-light);border-color:var(--accent);color:var(--accent)}
 
-/* SWIPE INDICATOR */
-.swipe-hint{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.55);color:#fff;font-size:11px;padding:5px 12px;border-radius:20px;pointer-events:none;opacity:0;transition:opacity 0.3s;z-index:39;white-space:nowrap}
-.swipe-hint.show{opacity:1}
-
-/* PAGE TRANSITION */
-.content{transition:opacity 0.18s ease}
-.content.transitioning{opacity:0}
 
 .price{font-variant-numeric:tabular-nums}
 </style>
@@ -431,7 +424,6 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
-<div class="swipe-hint" id="swipe-hint"></div>
 
 <!-- MODAL CLIENTE -->
 <div id="modal-cliente" class="modal-overlay" onclick="onOverlayClick(event,'modal-cliente')">
@@ -689,24 +681,16 @@ function confirmResolve(v){
 function onOverlayClick(e,id){if(e.target===e.currentTarget)closeModal(id);}
 
 // ===== NAVIGATION =====
-// Main nav order for swipe
 var NAV_ORDER = ['dashboard','gestao','pedidos','cardapio'];
 // Gestao sub-pages
 var GESTAO_PAGES = ['clientes','produtos','relatorios'];
-// History stack for back swipe
-var pageHistory = [];
 
 function isGestaoPage(p){ return GESTAO_PAGES.includes(p); }
 
-function showPage(p, addHistory){
+function showPage(p){
   // Close gestao menu if open
   closeGestaoMenu();
 
-  var prev = currentPage;
-  if(addHistory !== false && prev && prev !== p){
-    pageHistory.push(prev);
-    if(pageHistory.length > 20) pageHistory.shift();
-  }
 
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
@@ -737,12 +721,6 @@ function showPage(p, addHistory){
   if(p==='cardapio')renderCardapioPreview();
 }
 
-function goBack(){
-  if(pageHistory.length){
-    var prev = pageHistory.pop();
-    showPage(prev, false);
-  }
-}
 
 // Gestao menu
 function toggleGestaoMenu(){
@@ -787,62 +765,7 @@ function onFabClick(){
   else openModal('modal-pedido','new');
 }
 
-// ===== SWIPE GESTURES =====
-(function(){
-  var touchStartX=0, touchStartY=0, touchStartTime=0;
-  var SWIPE_MIN=60, SWIPE_MAX_Y=80, SWIPE_MAX_MS=400;
-  var NAV_ZONE_HEIGHT=80; // px from bottom for nav swipe
 
-  // Get current main-nav index
-  function mainNavIndex(){
-    var p = currentPage;
-    if(isGestaoPage(p)) p='gestao';
-    return NAV_ORDER.indexOf(p);
-  }
-
-  document.addEventListener('touchstart', function(e){
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-    touchStartTime = Date.now();
-  }, {passive:true});
-
-  document.addEventListener('touchend', function(e){
-    // Ignore if a modal is open
-    if(document.querySelector('.modal-overlay.open')) return;
-    if(document.getElementById('lock-screen') && !document.getElementById('lock-screen').classList.contains('hidden')) return;
-
-    var dx = e.changedTouches[0].clientX - touchStartX;
-    var dy = e.changedTouches[0].clientY - touchStartY;
-    var dt = Date.now() - touchStartTime;
-    var fromBottom = window.innerHeight - touchStartY;
-    var isNavSwipe = fromBottom < NAV_ZONE_HEIGHT;
-
-    if(Math.abs(dx) < SWIPE_MIN) return;
-    if(Math.abs(dy) > SWIPE_MAX_Y) return;
-    if(dt > SWIPE_MAX_MS) return;
-
-    if(isNavSwipe){
-      // Swipe on nav bar: navigate between 4 main tabs
-      var idx = mainNavIndex();
-      if(dx < 0 && idx < NAV_ORDER.length-1){
-        // swipe left → next tab
-        var next = NAV_ORDER[idx+1];
-        if(next==='gestao') toggleGestaoMenu();
-        else showPage(next);
-      } else if(dx > 0 && idx > 0){
-        // swipe right → prev tab
-        var prev2 = NAV_ORDER[idx-1];
-        if(prev2==='gestao') toggleGestaoMenu();
-        else showPage(prev2);
-      }
-    } else {
-      // Swipe on content: left = back
-      if(dx > SWIPE_MIN && pageHistory.length){
-        goBack();
-      }
-    }
-  }, {passive:true});
-})();
 
 function openModal(id,mode){
   if(id==='modal-pedido')buildPedidoModal();
