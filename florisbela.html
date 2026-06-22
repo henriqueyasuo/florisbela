@@ -1511,7 +1511,7 @@ function renderCardapioPreview(){
     html+=`<div class="cardapio-section"><div class="cardapio-section-title">${nomes[cat]}</div>`;
     grupos[cat].forEach(p=>{
       var imgEl=p.foto?`<img class="cardapio-item-img" src="${p.foto}" alt="${esc(p.nome)}" loading="lazy">`:`<div class="cardapio-item-img-placeholder"><i class="ti ti-bread" aria-hidden="true"></i></div>`;
-      var ings=p.ing?p.ing.split('\n').filter(Boolean).slice(0,4).join(', '):'';
+      var ings=p.ing?p.ing.split('\n').filter(Boolean).join(', '):'';
       html+=`<div class="cardapio-item">${imgEl}<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">${esc(p.nome)}</div>${ings?'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+esc(ings)+'</div>':''}</div><div style="font-size:16px;font-weight:700;color:var(--accent);flex-shrink:0">${fmtBRL(p.preco)}</div></div>`;
     });
     html+='</div>';
@@ -1561,6 +1561,29 @@ function compartilharWhatsApp(){
   window.open('https://wa.me/?text='+texto,'_blank');
 }
 
+
+// ===== WRAP TEXT FOR CANVAS =====
+function wrapText(ctx, text, x, y, maxWidth, lineHeight){
+  if(!text){return 0;}
+  var words=text.split(', ');
+  var line='';
+  var lines=[];
+  for(var i=0;i<words.length;i++){
+    var test=line?line+', '+words[i]:words[i];
+    if(ctx.measureText(test).width>maxWidth && line){
+      lines.push(line);
+      line=words[i];
+    } else {
+      line=test;
+    }
+  }
+  if(line)lines.push(line);
+  for(var j=0;j<lines.length;j++){
+    ctx.fillText(lines[j], x, y+j*lineHeight);
+  }
+  return lines.length;
+}
+
 function gerarImagemCardapio(){
   var visiveis=db.produtos.filter(p=>!p.oculto);
   if(!visiveis.length){toast('Nenhum produto visível.');return;}
@@ -1570,11 +1593,26 @@ function gerarImagemCardapio(){
   var cats=['pizza','pao','outro'].filter(c=>grupos[c].length>0);
   var totalItens=visiveis.length;
   var W=900;
-  var itemH=80;
   var headerH=110;
   var catHeaderH=40;
   var footerH=50;
-  var H=headerH + cats.reduce((s,c)=>s+catHeaderH+grupos[c].length*itemH+16,0) + footerH + 20;
+  // Pre-calculate height dynamically based on ingredient text
+  // Use a temp canvas to measure text
+  var tmpCtx=document.createElement('canvas').getContext('2d');
+  tmpCtx.font='13px -apple-system, sans-serif';
+  function estimateItemH(p){
+    if(!p.ing)return 74;
+    var ings=p.ing.split('\n').filter(Boolean).join(', ');
+    var maxW=900-30-84-14;
+    var words=ings.split(', ');var line='';var lines=1;
+    for(var i=0;i<words.length;i++){
+      var test=line?line+', '+words[i]:words[i];
+      if(tmpCtx.measureText(test).width>maxW&&line){lines++;line=words[i];}
+      else line=test;
+    }
+    return 56 + lines*18;
+  }
+  var H=headerH+footerH+20+cats.reduce((s,c)=>s+catHeaderH+grupos[c].reduce((ss,p)=>ss+estimateItemH(p)+6,0)+16,0);
   var canvas=document.getElementById('cardapio-canvas');
   canvas.width=W; canvas.height=H;
   var ctx=canvas.getContext('2d');
@@ -1608,23 +1646,26 @@ function gerarImagemCardapio(){
     y+=catHeaderH;
 
     grupos[cat].forEach(function(p){
-      // item row bg
+      // item row bg — height calculated after text measure
+      var dynH=estimateItemH(p);
       ctx.fillStyle='#ffffff';
-      ctx.fillRect(16, y, W-32, itemH-6);
+      ctx.fillRect(16, y, W-32, dynH-4);
       ctx.strokeStyle='rgba(0,0,0,0.07)';
       ctx.lineWidth=0.5;
-      ctx.strokeRect(16,y,W-32,itemH-6);
+      ctx.strokeRect(16,y,W-32,dynH-4);
 
       // text
       ctx.fillStyle='#1a1a18';
       ctx.font='bold 17px -apple-system, sans-serif';
       ctx.textAlign='left';
       ctx.fillText(p.nome, 84, y+26);
+      var dynH=56;
       if(p.ing){
-        var ings=p.ing.split('\n').filter(Boolean).slice(0,3).join(', ');
+        var ings=p.ing.split('\n').filter(Boolean).join(', ');
         ctx.fillStyle='#6b6b67';
         ctx.font='13px -apple-system, sans-serif';
-        ctx.fillText(ings.length>55?ings.slice(0,55)+'…':ings, 84, y+46);
+        var ingsLines=wrapText(ctx,ings,84,y+46,W-30-84,18);
+        dynH=56+ingsLines*18;
       }
       // price
       ctx.fillStyle='#c8701a';
@@ -1632,7 +1673,7 @@ function gerarImagemCardapio(){
       ctx.textAlign='right';
       ctx.fillText(fmtBRL(p.preco), W-30, y+30);
 
-      y+=itemH;
+      y+=dynH;
     });
     y+=16;
   };
@@ -1679,11 +1720,12 @@ function gerarImagemCardapio(){
       y+=catHeaderH;
 
       grupos[cat].forEach(function(p){
+        var dynH2=estimateItemH(p);
         ctx.fillStyle='#ffffff';
-        ctx.fillRect(16,y,W-32,itemH-6);
+        ctx.fillRect(16,y,W-32,dynH2-4);
         ctx.strokeStyle='rgba(0,0,0,0.07)';
         ctx.lineWidth=0.5;
-        ctx.strokeRect(16,y,W-32,itemH-6);
+        ctx.strokeRect(16,y,W-32,dynH2-4);
 
         // photo
         var imgSz=itemH-14;
@@ -1706,18 +1748,20 @@ function gerarImagemCardapio(){
         ctx.font='bold 17px -apple-system, sans-serif';
         ctx.textAlign='left';
         ctx.fillText(p.nome, 24+imgSz+14, y+26);
+        var dynH2=56;
         if(p.ing){
-          var ings=p.ing.split('\n').filter(Boolean).slice(0,3).join(', ');
+          var ings=p.ing.split('\n').filter(Boolean).join(', ');
           ctx.fillStyle='#6b6b67';
           ctx.font='13px -apple-system, sans-serif';
-          ctx.fillText(ings.length>55?ings.slice(0,55)+'…':ings, 24+imgSz+14, y+46);
+          var ingsLines2=wrapText(ctx,ings,24+imgSz+14,y+46,W-30-(24+imgSz+14),18);
+          dynH2=56+ingsLines2*18;
         }
         ctx.fillStyle='#c8701a';
         ctx.font='bold 18px -apple-system, sans-serif';
         ctx.textAlign='right';
         ctx.fillText(fmtBRL(p.preco), W-30, y+30);
 
-        y+=itemH;
+        y+=dynH2;
       });
       y+=16;
     });
@@ -1796,6 +1840,7 @@ async function configurarCredencial(){
         userVerification:'required',
         residentKey:'preferred'
       },
+      hints:['client-device'],
       timeout:60000
     }});
     localStorage.setItem(AUTH_KEY, JSON.stringify({
@@ -1830,17 +1875,21 @@ async function autenticar(){
       return;
     }
     var challenge = crypto.getRandomValues(new Uint8Array(32));
-    await navigator.credentials.get({publicKey:{
-      challenge,
-      rpId: location.hostname,
-      allowCredentials:[{
-        type:'public-key',
-        id: b64urlDecode(stored.id),
-        transports:['internal']
-      }],
-      userVerification:'required',
-      timeout:60000
-    }});
+    await navigator.credentials.get({
+      mediation: 'required',
+      publicKey:{
+        challenge,
+        rpId: location.hostname,
+        allowCredentials:[{
+          type:'public-key',
+          id: b64urlDecode(stored.id),
+          transports:['internal','hybrid']
+        }],
+        userVerification:'required',
+        timeout:60000,
+        hints:['client-device']
+      }
+    });
     desbloquear();
   }catch(e){
     console.error('Autenticação:', e);
