@@ -546,8 +546,9 @@ async function sbFetch(path, method, body, extraPrefer){
   return ct.includes('json') ? res.json() : [];
 }
 
-async function sbGet(table){
-  return sbFetch(table+'?order=criado_em.asc', 'GET');
+async function sbGet(table, order){
+  var o=order||'criado_em.asc';
+  return sbFetch(table+'?order='+o, 'GET');
 }
 
 async function sbUpsert(table, obj){
@@ -583,9 +584,9 @@ async function loadDB(){
   showLoading('Conectando ao banco de dados...');
   try{
     var [clientes, produtos, pedidos] = await Promise.all([
-      sbGet('clientes'),
-      sbGet('produtos'),
-      sbGet('pedidos')
+      sbGet('clientes','nome.asc'),
+      sbGet('produtos','cat.asc,nome.asc'),
+      sbGet('pedidos','data.desc,criado_em.desc')
     ]);
     db.clientes = clientes.map(r=>({
       id:r.id, nome:r.nome, tel:r.tel||'', bairro:r.bairro||'', obs:r.obs||''
@@ -743,6 +744,7 @@ function statusBadge(s){
 
 // ===== CLIENTES =====
 function renderClientes(list){
+  list=list.slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
   var el=document.getElementById('lista-clientes');
   if(!list.length){
     el.innerHTML='<div class="empty-state"><i class="ti ti-users"></i><p>Nenhum cliente ainda.<br>Toque + para adicionar.</p></div>';
@@ -798,7 +800,15 @@ async function deleteCliente(id){
 // ===== PRODUTOS =====
 function renderProdutos(cat){
   var el=document.getElementById('lista-produtos');
+  var catOrder={pizza:0,pao:1,outro:2};
   var list=cat==='todos'?db.produtos:db.produtos.filter(p=>p.cat===cat);
+  list=list.slice().sort((a,b)=>{
+    if(cat==='todos'){
+      var co=(catOrder[a.cat]??9)-(catOrder[b.cat]??9);
+      if(co!==0)return co;
+    }
+    return a.nome.localeCompare(b.nome,'pt-BR');
+  });
   if(!list.length){
     el.innerHTML='<div class="empty-state"><i class="ti ti-bread"></i><p>Nenhum produto nesta categoria.<br>Toque + para adicionar.</p></div>';
     return;
