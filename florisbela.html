@@ -1588,202 +1588,196 @@ function gerarImagemCardapio(){
   var visiveis=db.produtos.filter(p=>!p.oculto);
   if(!visiveis.length){toast('Nenhum produto visível.');return;}
   toast('Gerando imagem...');
+
   var grupos={pizza:[],pao:[],outro:[]};
-  visiveis.forEach(p=>{ if(grupos[p.cat])grupos[p.cat].push(p); else grupos.outro.push(p); });
-  var cats=['pizza','pao','outro'].filter(c=>grupos[c].length>0);
-  var totalItens=visiveis.length;
+  visiveis.forEach(function(p){ if(grupos[p.cat])grupos[p.cat].push(p); else grupos.outro.push(p); });
+  var cats=['pizza','pao','outro'].filter(function(c){return grupos[c].length>0;});
+  var nomes={pizza:'Pizzas',pao:'Paes Artesanais',outro:'Outros'};
+  var nomesEmoji={pizza:'🍕 Pizzas',pao:'🍞 Pães Artesanais',outro:'✨ Outros'};
+
   var W=900;
+  var IMG_SZ=60;
+  var PAD=16;
+  var TEXT_X=PAD+IMG_SZ+14;
+  var MAX_TEXT_W=W-PAD-30-TEXT_X;
   var headerH=110;
-  var catHeaderH=40;
-  var footerH=50;
-  // Pre-calculate height dynamically based on ingredient text
-  // Use a temp canvas to measure text
-  var tmpCtx=document.createElement('canvas').getContext('2d');
-  tmpCtx.font='13px -apple-system, sans-serif';
-  function estimateItemH(p){
-    if(!p.ing)return 74;
-    var ings=p.ing.split('\n').filter(Boolean).join(', ');
-    var maxW=900-30-84-14;
-    var words=ings.split(', ');var line='';var lines=1;
+  var catHeaderH=44;
+  var footerH=60;
+  var lineH=18;
+  var nameH=28;
+  var itemPad=12;
+
+  // measure text on temp canvas
+  var tmpCanvas=document.createElement('canvas');
+  var tmpCtx=tmpCanvas.getContext('2d');
+
+  function countLines(text, font, maxW){
+    if(!text) return 0;
+    tmpCtx.font=font;
+    var words=text.split(', ');
+    var line=''; var count=1;
     for(var i=0;i<words.length;i++){
-      var test=line?line+', '+words[i]:words[i];
-      if(tmpCtx.measureText(test).width>maxW&&line){lines++;line=words[i];}
+      var test=line ? line+', '+words[i] : words[i];
+      if(tmpCtx.measureText(test).width>maxW && line){count++;line=words[i];}
       else line=test;
     }
-    return 56 + lines*18;
+    return count;
   }
-  var H=headerH+footerH+20+cats.reduce((s,c)=>s+catHeaderH+grupos[c].reduce((ss,p)=>ss+estimateItemH(p)+6,0)+16,0);
-  var canvas=document.getElementById('cardapio-canvas');
-  canvas.width=W; canvas.height=H;
-  var ctx=canvas.getContext('2d');
 
-  // background
-  ctx.fillStyle='#faf9f6';
-  ctx.fillRect(0,0,W,H);
+  function itemHeight(p){
+    var ings=p.ing ? p.ing.split('\n').filter(Boolean).join(', ') : '';
+    var ingLines=ings ? countLines(ings,'13px sans-serif',MAX_TEXT_W) : 0;
+    return itemPad + nameH + (ingLines>0 ? ingLines*lineH+4 : 0) + itemPad;
+  }
 
-  // header
-  ctx.fillStyle='#c8701a';
-  ctx.fillRect(0,0,W,headerH);
-  ctx.fillStyle='#ffffff';
-  ctx.font='bold 36px -apple-system, sans-serif';
-  ctx.textAlign='center';
-  ctx.fillText('🌾 Florisbela', W/2, 52);
-  ctx.font='18px -apple-system, sans-serif';
-  ctx.fillStyle='rgba(255,255,255,0.88)';
-  ctx.fillText('Panificação Artesanal', W/2, 82);
+  // Calculate total canvas height
+  var H = headerH + 16;
+  cats.forEach(function(cat){
+    H += catHeaderH;
+    grupos[cat].forEach(function(p){ H += itemHeight(p)+6; });
+    H += 16;
+  });
+  H += footerH;
 
-  var nomes={pizza:'🍕 Pizzas',pao:'🍞 Pães Artesanais',outro:'✨ Outros'};
-  var y=headerH+16;
-
-  var drawCategoria=function(cat){
-    // category header
-    ctx.fillStyle='#faeeda';
-    ctx.fillRect(16, y, W-32, catHeaderH-4);
-    ctx.fillStyle='#c8701a';
-    ctx.font='bold 16px -apple-system, sans-serif';
-    ctx.textAlign='left';
-    ctx.fillText(nomes[cat], 30, y+26);
-    y+=catHeaderH;
-
-    grupos[cat].forEach(function(p){
-      // item row bg — height calculated after text measure
-      var dynH=estimateItemH(p);
-      ctx.fillStyle='#ffffff';
-      ctx.fillRect(16, y, W-32, dynH-4);
-      ctx.strokeStyle='rgba(0,0,0,0.07)';
-      ctx.lineWidth=0.5;
-      ctx.strokeRect(16,y,W-32,dynH-4);
-
-      // text
-      ctx.fillStyle='#1a1a18';
-      ctx.font='bold 17px -apple-system, sans-serif';
-      ctx.textAlign='left';
-      ctx.fillText(p.nome, 84, y+26);
-      var dynH=56;
-      if(p.ing){
-        var ings=p.ing.split('\n').filter(Boolean).join(', ');
-        ctx.fillStyle='#6b6b67';
-        ctx.font='13px -apple-system, sans-serif';
-        var ingsLines=wrapText(ctx,ings,84,y+46,W-30-84,18);
-        dynH=56+ingsLines*18;
-      }
-      // price
-      ctx.fillStyle='#c8701a';
-      ctx.font='bold 18px -apple-system, sans-serif';
-      ctx.textAlign='right';
-      ctx.fillText(fmtBRL(p.preco), W-30, y+30);
-
-      y+=dynH;
+  // Load all product images first
+  var imgPromises=visiveis.filter(function(p){return !!p.foto;}).map(function(p){
+    return new Promise(function(res){
+      var img=new Image();
+      img.onload=function(){res({id:p.id,img:img});};
+      img.onerror=function(){res({id:p.id,img:null});};
+      img.src=p.foto;
     });
-    y+=16;
-  };
-
-  // load images then draw
-  var imgPromises=[];
-  visiveis.forEach(function(p){
-    if(p.foto){
-      var pr=new Promise(function(res){
-        var img=new Image();
-        img.onload=function(){res({id:p.id,img:img});};
-        img.onerror=function(){res({id:p.id,img:null});};
-        img.src=p.foto;
-      });
-      imgPromises.push(pr);
-    }
   });
 
   Promise.all(imgPromises).then(function(imgs){
     var imgMap={};
     imgs.forEach(function(x){if(x.img)imgMap[x.id]=x.img;});
 
-    // redraw with images
+    var canvas=document.getElementById('cardapio-canvas');
+    canvas.width=W; canvas.height=H;
+    var ctx=canvas.getContext('2d');
+
+    // helpers
+    function roundRect(x,y,w,h,r){
+      ctx.beginPath();
+      if(ctx.roundRect){ctx.roundRect(x,y,w,h,r);}
+      else{ctx.rect(x,y,w,h);}
+      ctx.closePath();
+    }
+
+    function drawWrappedText(text,font,color,x,startY,maxW){
+      if(!text) return 0;
+      ctx.font=font; ctx.fillStyle=color; ctx.textAlign='left';
+      var words=text.split(', '); var line=''; var row=0;
+      for(var i=0;i<words.length;i++){
+        var test=line ? line+', '+words[i] : words[i];
+        if(ctx.measureText(test).width>maxW && line){
+          ctx.fillText(line,x,startY+row*lineH); row++; line=words[i];
+        } else { line=test; }
+      }
+      if(line){ctx.fillText(line,x,startY+row*lineH); row++;}
+      return row;
+    }
+
+    // Background
     ctx.fillStyle='#faf9f6';
     ctx.fillRect(0,0,W,H);
+
+    // Header
     ctx.fillStyle='#c8701a';
     ctx.fillRect(0,0,W,headerH);
     ctx.fillStyle='#ffffff';
-    ctx.font='bold 36px -apple-system, sans-serif';
     ctx.textAlign='center';
-    ctx.fillText('🌾 Florisbela', W/2, 52);
-    ctx.font='18px -apple-system, sans-serif';
-    ctx.fillStyle='rgba(255,255,255,0.88)';
-    ctx.fillText('Panificação Artesanal', W/2, 82);
+    ctx.font='bold 38px sans-serif';
+    ctx.fillText('Florisbela',W/2,56);
+    ctx.font='18px sans-serif';
+    ctx.fillStyle='rgba(255,255,255,0.85)';
+    ctx.fillText('Panificação Artesanal',W/2,84);
 
-    y=headerH+16;
+    var y=headerH+16;
+
     cats.forEach(function(cat){
+      // Category header
       ctx.fillStyle='#faeeda';
-      ctx.fillRect(16,y,W-32,catHeaderH-4);
+      ctx.fillRect(PAD,y,W-PAD*2,catHeaderH-4);
       ctx.fillStyle='#c8701a';
-      ctx.font='bold 16px -apple-system, sans-serif';
+      ctx.font='bold 16px sans-serif';
       ctx.textAlign='left';
-      ctx.fillText(nomes[cat], 30, y+26);
+      ctx.fillText(nomesEmoji[cat],PAD+14,y+28);
       y+=catHeaderH;
 
       grupos[cat].forEach(function(p){
-        var dynH2=estimateItemH(p);
-        ctx.fillStyle='#ffffff';
-        ctx.fillRect(16,y,W-32,dynH2-4);
-        ctx.strokeStyle='rgba(0,0,0,0.07)';
-        ctx.lineWidth=0.5;
-        ctx.strokeRect(16,y,W-32,dynH2-4);
+        var h=itemHeight(p);
 
-        // photo
-        var imgSz=itemH-14;
+        // Item background
+        ctx.fillStyle='#ffffff';
+        roundRect(PAD,y,W-PAD*2,h,8);
+        ctx.fill();
+        ctx.strokeStyle='rgba(0,0,0,0.07)';
+        ctx.lineWidth=1;
+        roundRect(PAD,y,W-PAD*2,h,8);
+        ctx.stroke();
+
+        // Photo or placeholder
+        var imgY=y+itemPad;
         if(imgMap[p.id]){
           ctx.save();
-          ctx.beginPath();
-          ctx.roundRect(24,y+4,imgSz,imgSz,6);
+          roundRect(PAD+8,imgY,IMG_SZ,IMG_SZ,6);
           ctx.clip();
-          ctx.drawImage(imgMap[p.id],24,y+4,imgSz,imgSz);
+          ctx.drawImage(imgMap[p.id],PAD+8,imgY,IMG_SZ,IMG_SZ);
           ctx.restore();
         } else {
           ctx.fillStyle='#efede8';
-          ctx.beginPath();
-          if(ctx.roundRect){ctx.roundRect(24,y+4,imgSz,imgSz,6);}
-          else{ctx.rect(24,y+4,imgSz,imgSz);}
+          roundRect(PAD+8,imgY,IMG_SZ,IMG_SZ,6);
           ctx.fill();
         }
 
+        // Product name
+        var textY=y+itemPad+20;
         ctx.fillStyle='#1a1a18';
-        ctx.font='bold 17px -apple-system, sans-serif';
+        ctx.font='bold 17px sans-serif';
         ctx.textAlign='left';
-        ctx.fillText(p.nome, 24+imgSz+14, y+26);
-        var dynH2=56;
+        ctx.fillText(p.nome, TEXT_X, textY);
+
+        // Ingredients
         if(p.ing){
           var ings=p.ing.split('\n').filter(Boolean).join(', ');
-          ctx.fillStyle='#6b6b67';
-          ctx.font='13px -apple-system, sans-serif';
-          var ingsLines2=wrapText(ctx,ings,24+imgSz+14,y+46,W-30-(24+imgSz+14),18);
-          dynH2=56+ingsLines2*18;
+          drawWrappedText(ings,'13px sans-serif','#6b6b67',TEXT_X,textY+22,MAX_TEXT_W);
         }
-        ctx.fillStyle='#c8701a';
-        ctx.font='bold 18px -apple-system, sans-serif';
-        ctx.textAlign='right';
-        ctx.fillText(fmtBRL(p.preco), W-30, y+30);
 
-        y+=dynH2;
+        // Price
+        ctx.fillStyle='#c8701a';
+        ctx.font='bold 18px sans-serif';
+        ctx.textAlign='right';
+        ctx.fillText(fmtBRL(p.preco),W-PAD-14,y+itemPad+22);
+
+        y+=h+6;
       });
       y+=16;
     });
 
-    // footer
+    // Footer
     ctx.fillStyle='#9e9e99';
-    ctx.font='14px -apple-system, sans-serif';
+    ctx.font='14px sans-serif';
     ctx.textAlign='center';
-    ctx.fillText('Pedidos via WhatsApp  ·  @florisbelapaesartesanais', W/2, y+28);
+    ctx.fillText('Pedidos via WhatsApp  ·  @florisbelapaesartesanais',W/2,y+30);
 
-    // download
+    // Download
     try{
       canvas.toBlob(function(blob){
         var url=URL.createObjectURL(blob);
         var a=document.createElement('a');
-        a.href=url;a.download='cardapio_florisbela.png';
-        a.click();URL.revokeObjectURL(url);
+        a.href=url; a.download='cardapio_florisbela.png';
+        a.click(); URL.revokeObjectURL(url);
         toast('Imagem salva! Compartilhe no Instagram ou WhatsApp.');
       },'image/png');
-    }catch(e){toast('Erro ao gerar imagem. Tente em outro navegador.');}
+    }catch(e){
+      console.error('toBlob error:',e);
+      toast('Erro ao gerar imagem: '+e.message);
+    }
   });
 }
+
 
 
 // ===== WEBAUTHN / BIOMETRIA =====
