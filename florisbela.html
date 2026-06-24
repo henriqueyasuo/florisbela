@@ -506,7 +506,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
       <span class="foto-hint">Toque para adicionar foto</span>
       <div class="foto-overlay"><i class="ti ti-camera" style="font-size:20px"></i><span>Trocar foto</span></div>
     </div>
-    <input type="file" id="pr-foto-input" accept="image/*" style="display:none" onchange="onFotoChange(event)" />
+    <input type="file" id="pr-foto-input" accept="image/*" capture="environment" style="display:none" onchange="onFotoChange(event)" />
     <input type="hidden" id="pr-foto" />
     <button type="button" id="pr-foto-remove" style="display:none;margin-top:6px;font-size:12px;color:var(--danger);background:none;border:none;cursor:pointer;padding:0" onclick="removeFoto()"><i class="ti ti-x"></i> Remover foto</button>
   </div>
@@ -1183,19 +1183,29 @@ function renderPedidoGrid(){
   updatePedidoSummary();
 }
 
-function toggleProdPedido(id){
-  var qty=pedidoQtds[id]||0;
-  if(qty===0){
-    pedidoQtds[id]=1;
-  } else {
-    // cycle: 1→2→3→...→remove (long press would remove, tap adds)
-    pedidoQtds[id]=qty+1;
-  }
-  // update card badge
+function toggleProdPedido(id){ setProdQty(id,1); }
+
+function setProdQty(id,delta){
+  var prev=pedidoQtds[id]||0;
+  var next=Math.max(0,prev+delta);
+  pedidoQtds[id]=next;
   var card=document.getElementById('pdcard-'+id);
   var badge=document.getElementById('qdg-'+id);
-  if(card){card.classList.add('selected');}
-  if(badge){badge.textContent=pedidoQtds[id];badge.style.display='flex';}
+  var minusBtn=card?card.querySelector('.qty-btn'):null;
+  if(next>0){
+    if(card)card.classList.add('selected');
+    if(badge){badge.textContent=next;badge.style.display='inline';}
+    // show minus button if it was hidden
+    if(card && !card.querySelector('.qty-btn[onclick*="-1"]')){
+      // re-render this card
+      renderPedidoGrid();return;
+    }
+    if(minusBtn)minusBtn.style.display='';
+  } else {
+    if(card)card.classList.remove('selected');
+    // re-render to hide minus button
+    renderPedidoGrid();return;
+  }
   updatePedidoSummary();
 }
 
@@ -1433,18 +1443,22 @@ function setFotoPreview(dataUrl){
 
 function onFotoChange(e){
   var file=e.target.files[0];if(!file)return;
-  if(file.size>4*1024*1024){toast('Imagem muito grande. Use até 4MB.');return;}
+  // No size limit — we compress regardless
   var reader=new FileReader();
   reader.onload=function(ev){
-    // compress via canvas
     var img=new Image();
     img.onload=function(){
+      var SIZE=400; // 400×400px square output
       var canvas=document.createElement('canvas');
-      var MAX=480;var w=img.width,h=img.height;
-      if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
-      canvas.width=w;canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0,w,h);
-      setFotoPreview(canvas.toDataURL('image/jpeg',0.70));
+      canvas.width=SIZE;canvas.height=SIZE;
+      var ctx=canvas.getContext('2d');
+      // Crop center square from source image
+      var sw=img.width,sh=img.height;
+      var side=Math.min(sw,sh);
+      var sx=Math.round((sw-side)/2);
+      var sy=Math.round((sh-side)/2);
+      ctx.drawImage(img,sx,sy,side,side,0,0,SIZE,SIZE);
+      setFotoPreview(canvas.toDataURL('image/jpeg',0.65));
     };
     img.src=ev.target.result;
   };
