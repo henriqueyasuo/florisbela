@@ -618,10 +618,22 @@ function renderClientes(list){
   list=list.slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
   var el=document.getElementById('lista-clientes');
   if(!list.length){el.innerHTML='<div class="empty-state"><i class="ti ti-users"></i><p>Nenhum cliente ainda.<br>Toque + para adicionar.</p></div>';return;}
-  el.innerHTML=list.map(function(c){
-    return '<div class="card"><div class="card-row"><div style="flex:1"><div class="card-name">'+esc(c.nome)+'</div><div class="card-sub">'+(c.tel?esc(c.tel):'Sem telefone')+(c.bairro?' · '+esc(c.bairro):'')+'</div>'+(c.endereco?'<div class="card-sub"><i class="ti ti-map-pin" style="font-size:12px"></i> '+esc(c.endereco)+'</div>':'')+(c.obs?'<div class="card-sub">'+esc(c.obs)+'</div>':'')+'</div><div class="card-actions">'+(c.tel?'<a href="https://wa.me/55'+c.tel.replace(/\D/g,'')+'" style="text-decoration:none;display:inline-flex"><button class="btn-icon" style="color:#25D366"><i class="ti ti-brand-whatsapp"></i></button></a>':'')+'<button class="btn-icon" onclick="editarCliente(\''+c.id+'\')"><i class="ti ti-edit"></i></button><button class="btn-icon" onclick="deleteCliente(\''+c.id+'\')"><i class="ti ti-trash"></i></button></div></div></div>';
-  }).join('');
+  el.innerHTML='';
+  list.forEach(function(c){
+    var div=document.createElement('div');
+    div.className='card';
+    var waBtn=c.tel?'<a href="https://wa.me/55'+c.tel.replace(/\D/g,'')+'" style="text-decoration:none;display:inline-flex"><button class="btn-icon" style="color:#25D366"><i class="ti ti-brand-whatsapp"></i></button></a>':'';
+    div.innerHTML='<div class="card-row"><div style="flex:1"><div class="card-name">'+esc(c.nome)+'</div><div class="card-sub">'+(c.tel?esc(c.tel):'Sem telefone')+(c.bairro?' · '+esc(c.bairro):'')+'</div>'+(c.endereco?'<div class="card-sub"><i class="ti ti-map-pin" style="font-size:12px"></i> '+esc(c.endereco)+'</div>':'')+(c.obs?'<div class="card-sub">'+esc(c.obs)+'</div>':'')+'</div><div class="card-actions">'+waBtn+'<button class="btn-icon" aria-label="Editar"><i class="ti ti-edit"></i></button><button class="btn-icon" aria-label="Excluir"><i class="ti ti-trash"></i></button></div></div>';
+    div.querySelectorAll&&setTimeout(function(){},0);
+    var btns=div.querySelectorAll('.btn-icon[aria-label]');
+    if(btns.length>=2){
+      btns[btns.length-2].addEventListener('click',(function(id){return function(){editarCliente(id);};})(c.id));
+      btns[btns.length-1].addEventListener('click',(function(id){return function(){deleteCliente(id);};})(c.id));
+    }
+    el.appendChild(div);
+  });
 }
+
 function filterClientes(q){renderClientes(db.clientes.filter(function(c){return c.nome.toLowerCase().includes(q.toLowerCase())||(c.tel||'').includes(q);}));}
 function editarCliente(id){
   var c=db.clientes.find(function(x){return x.id===id;});
@@ -651,16 +663,30 @@ async function deleteCliente(id){
 var CAT_ORDER={pizza:0,pao:1,outro:2};
 function renderProdutos(cat){
   var el=document.getElementById('lista-produtos');
+  var catOrder={pizza:0,pao:1,outro:2};
   var list=cat==='todos'?db.produtos:db.produtos.filter(function(p){return p.cat===cat;});
-  list=list.slice().sort(function(a,b){if(cat==='todos'){var co=(CAT_ORDER[a.cat]||9)-(CAT_ORDER[b.cat]||9);if(co!==0)return co;}return a.nome.localeCompare(b.nome,'pt-BR');});
+  list=list.slice().sort(function(a,b){
+    if(cat==='todos'){var co=(catOrder[a.cat]||9)-(catOrder[b.cat]||9);if(co!==0)return co;}
+    return a.nome.localeCompare(b.nome,'pt-BR');
+  });
   if(!list.length){el.innerHTML='<div class="empty-state"><i class="ti ti-bread"></i><p>Nenhum produto.<br>Toque + para adicionar.</p></div>';return;}
-  el.innerHTML=list.map(function(p){
+  el.innerHTML='';
+  list.forEach(function(p){
     var chips=p.ing?p.ing.split('\n').filter(Boolean).map(function(i){return '<span class="chip">'+esc(i)+'</span>';}).join(''):'';
     var thumb=p.foto?'<img class="prod-thumb" src="'+p.foto+'" alt="'+esc(p.nome)+'" loading="lazy">':'<div class="prod-thumb-placeholder"><i class="ti ti-bread"></i></div>';
     var ocultoLabel=p.oculto?'<span class="oculto-badge"><i class="ti ti-eye-off" style="font-size:10px;vertical-align:-1px"></i> oculto</span>':'';
-    return '<div class="card" style="'+(p.oculto?'opacity:0.6':'')+'"><div class="card-row">'+thumb+'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap">'+catTag(p.cat)+'<span class="card-name">'+esc(p.nome)+'</span>'+ocultoLabel+'</div>'+(chips?'<div class="ingredient-chips">'+chips+'</div>':'')+(p.obs?'<div class="card-sub" style="margin-top:4px">'+esc(p.obs)+'</div>':'')+'</div><div style="text-align:right;flex-shrink:0;margin-left:10px"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmtBRL(p.preco)+'<span style="font-size:11px;color:var(--text2);font-weight:400">/'+(p.unidade||'un')+'</span></div><div class="card-actions" style="justify-content:flex-end;margin-top:8px"><button class="btn-icon" onclick="toggleOculto(\''+p.id+'\')" style="color:'+(p.oculto?'var(--accent)':'var(--text3)')+'"><i class="ti ti-eye'+(p.oculto?'':'-off')+'"></i></button><button class="btn-icon" onclick=\'editarProduto("'+p.id+'")\' ><i class="ti ti-edit"></i></button><button class="btn-icon" onclick="deleteProduto(\''+p.id+'\')"><i class="ti ti-trash"></i></button></div></div></div></div>';
-  }).join('');
+    var div=document.createElement('div');
+    div.className='card';
+    if(p.oculto)div.style.opacity='0.6';
+    div.innerHTML='<div class="card-row">'+thumb+'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap">'+catTag(p.cat)+'<span class="card-name">'+esc(p.nome)+'</span>'+ocultoLabel+'</div>'+(chips?'<div class="ingredient-chips">'+chips+'</div>':'')+(p.obs?'<div class="card-sub" style="margin-top:4px">'+esc(p.obs)+'</div>':'')+'</div><div style="text-align:right;flex-shrink:0;margin-left:10px"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmtBRL(p.preco)+'<span style="font-size:11px;color:var(--text2);font-weight:400">/'+esc(p.unidade||'un')+'</span></div><div class="card-actions" style="justify-content:flex-end;margin-top:8px"><button class="btn-icon" aria-label="Ocultar"><i class="ti ti-eye'+(p.oculto?'':'-off')+'"></i></button><button class="btn-icon" aria-label="Editar"><i class="ti ti-edit"></i></button><button class="btn-icon" aria-label="Excluir"><i class="ti ti-trash"></i></button></div></div></div>';
+    var btns=div.querySelectorAll('.card-actions .btn-icon');
+    btns[0].addEventListener('click',(function(id){return function(){toggleOculto(id);};})(p.id));
+    btns[1].addEventListener('click',(function(id){return function(){editarProduto(id);};})(p.id));
+    btns[2].addEventListener('click',(function(id){return function(){deleteProduto(id);};})(p.id));
+    el.appendChild(div);
+  });
 }
+
 function filterProdutos(cat,btn){produtoFiltro=cat;document.querySelectorAll('#page-produtos .tab').forEach(function(t){t.classList.remove('active');});btn.classList.add('active');renderProdutos(cat);}
 function editarProduto(id){
   var p=db.produtos.find(function(x){return x.id===id;});
