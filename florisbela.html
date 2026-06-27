@@ -763,24 +763,79 @@ function removeFoto(){setFotoPreview('');}
 function renderPedidos(filtro){
   var el=document.getElementById('lista-pedidos');
   var list=filtro==='todos'?db.pedidos:db.pedidos.filter(function(p){return p.status===filtro;});
-  if(!list.length){el.innerHTML='<div class="empty-state"><i class="ti ti-shopping-cart"></i><p>Nenhum pedido.<br>Toque + para registrar.</p></div>';return;}
-  el.innerHTML=list.map(function(o){
+  if(!list.length){
+    el.innerHTML='<div class="empty-state"><i class="ti ti-shopping-cart"></i><p>Nenhum pedido.<br>Toque + para registrar.</p></div>';
+    return;
+  }
+  el.innerHTML='';
+  list.forEach(function(o){
     var cl=getCliente(o.clienteId);
-    var itens=o.itens.map(function(i){return i.qty+'× '+getProduto(i.prodId).nome;}).join(', ');
     var d=o.data?o.data.split('-'):['','',''];
+    var dataEntrega=d[2]+'/'+d[1];
+
+    // Data de criação
     var criadoStr='';
     if(o.criadoEm){
       var dc=new Date(o.criadoEm);
       var ddC=String(dc.getDate()).padStart(2,'0');
       var mmC=String(dc.getMonth()+1).padStart(2,'0');
-      criadoStr='<span style="font-size:11px;color:var(--text3)"> · criado '+ddC+'/'+mmC+'</span>';
+      criadoStr=' · criado '+ddC+'/'+mmC;
     }
-    var numLabel=o.numero?'<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:20px">Nº '+o.numero+'</span>':'';
-    var descontoLabel=o.desconto>0?'<span style="font-size:11px;font-weight:600;color:var(--danger);background:var(--danger-bg);padding:2px 8px;border-radius:20px">− '+fmtBRL(o.desconto)+'</span>':'';
-    var pagoLabel=o.pago?'<span style="font-size:11px;font-weight:600;color:var(--success);background:var(--success-bg);padding:2px 8px;border-radius:20px">Pago</span>':'<span style="font-size:11px;font-weight:600;color:var(--warn);background:var(--warn-bg);padding:2px 8px;border-radius:20px">Aguard. pgto</span>';
-    return '<div class="card"><div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;flex-wrap:wrap">'+numLabel+statusBadge(o.status)+pagoLabel+descontoLabel+'<span class="card-name">'+esc(cl.nome)+'</span><span style="font-size:12px;color:var(--text3);margin-left:auto">'+d[2]+'/'+d[1]+'</span></div><div class="card-sub">'+esc(itens)+'</div>'+(o.obs?'<div class="card-sub" style="margin-top:3px;font-style:italic">'+esc(o.obs)+'</div>':'')+'<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px"><span style="font-size:17px;font-weight:700;color:var(--accent)" class="price">'+fmtBRL(o.total)+'</span><div style="display:flex;gap:6px">'+(o.status==='pendente'?'<button class="btn btn-secondary" style="padding:6px 11px;font-size:12px" onclick="marcarStatus(\''+o.id+'\',\'entregue\')"><i class="ti ti-check"></i>Entregar</button>':'')+(o.status==='pendente'?'<button class="btn btn-secondary" style="padding:6px 11px;font-size:12px;color:var(--danger);border-color:var(--danger)" onclick="marcarStatus(\''+o.id+'\',\'cancelado\')"><i class="ti ti-x"></i></button>':'')+(o.status==='entregue'?'<button class="btn btn-secondary" style="padding:6px 11px;font-size:12px;color:var(--text2)" onclick="marcarStatus(\''+o.id+'\',\'pendente\')"><i class="ti ti-arrow-back-up"></i>Desfazer</button>':'')+(o.status==='cancelado'?'<button class="btn btn-secondary" style="padding:6px 11px;font-size:12px;color:var(--text2)" onclick="marcarStatus(\''+o.id+'\',\'pendente\')"><i class="ti ti-arrow-back-up"></i>Reabrir</button>':'')+'<button class="btn-icon" onclick="togglePago(\''+o.id+'\')" style="color:'+(o.pago?'var(--success)':'var(--text3)')+'"><i class="ti ti-currency-dollar"></i></button><button class="btn-icon" onclick="editarPedido(\''+o.id+'\')"><i class="ti ti-edit"></i></button><button class="btn-icon" onclick="deletePedido(\''+o.id+'\')"><i class="ti ti-trash"></i></button></div></div></div>';
-  }).join('');
+
+    // Badges
+    var numLabel=o.numero?'<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:20px">Nº '+o.numero+'</span> ':'';
+    var pagoLabel=o.pago
+      ?'<span style="font-size:11px;font-weight:600;color:var(--success);background:var(--success-bg);padding:2px 8px;border-radius:20px">Pago</span>'
+      :'<span style="font-size:11px;font-weight:600;color:var(--warn);background:var(--warn-bg);padding:2px 8px;border-radius:20px">Aguard. pgto</span>';
+    var descontoLabel=o.desconto>0
+      ?'<span style="font-size:11px;font-weight:600;color:var(--danger);background:var(--danger-bg);padding:2px 8px;border-radius:20px">− '+fmtBRL(o.desconto)+'</span>'
+      :'';
+    var itensStr=o.itens.map(function(i){return i.qty+'× '+getProduto(i.prodId).nome;}).join(', ');
+
+    var div=document.createElement('div');
+    div.className='card';
+    div.innerHTML=
+      '<div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;flex-wrap:wrap">'+
+        numLabel+statusBadge(o.status)+' '+pagoLabel+' '+descontoLabel+
+        '<span class="card-name" style="margin-left:2px">'+esc(cl.nome)+'</span>'+
+        '<span style="font-size:11px;color:var(--text3);margin-left:auto">entrega '+dataEntrega+criadoStr+'</span>'+
+      '</div>'+
+      '<div class="card-sub">'+esc(itensStr)+'</div>'+
+      (o.obs?'<div class="card-sub" style="margin-top:3px;font-style:italic">'+esc(o.obs)+'</div>':'')+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">'+
+        '<span style="font-size:17px;font-weight:700;color:var(--accent)" class="price">'+fmtBRL(o.total)+'</span>'+
+        '<div style="display:flex;gap:6px" class="ped-actions">'+
+          (o.status==='pendente'?'<button class="btn btn-secondary" style="padding:6px 11px;font-size:12px" data-action="entregar"><i class="ti ti-check"></i>Entregar</button>':'')+
+          (o.status==='pendente'?'<button class="btn btn-secondary" style="padding:6px 11px;font-size:12px;color:var(--danger);border-color:var(--danger)" data-action="cancelar"><i class="ti ti-x"></i></button>':'')+
+          (o.status==='entregue'?'<button class="btn btn-secondary" style="padding:6px 11px;font-size:12px;color:var(--text2)" data-action="pendente"><i class="ti ti-arrow-back-up"></i>Desfazer</button>':'')+
+          (o.status==='cancelado'?'<button class="btn btn-secondary" style="padding:6px 11px;font-size:12px;color:var(--text2)" data-action="pendente"><i class="ti ti-arrow-back-up"></i>Reabrir</button>':'')+
+          '<button class="btn-icon" data-action="pago" style="color:'+(o.pago?'var(--success)':'var(--text3)')+'"><i class="ti ti-currency-dollar"></i></button>'+
+          '<button class="btn-icon" data-action="copiar" style="color:var(--text2)"><i class="ti ti-copy"></i></button>'+
+          '<button class="btn-icon" data-action="editar"><i class="ti ti-edit"></i></button>'+
+          '<button class="btn-icon" data-action="excluir"><i class="ti ti-trash"></i></button>'+
+        '</div>'+
+      '</div>';
+
+    // Attach events via addEventListener — no inline onclick quoting issues
+    div.querySelector('.ped-actions').addEventListener('click',(function(oid){
+      return function(e){
+        var btn=e.target.closest('[data-action]');
+        if(!btn)return;
+        var act=btn.dataset.action;
+        if(act==='entregar') marcarStatus(oid,'entregue');
+        else if(act==='cancelar') marcarStatus(oid,'cancelado');
+        else if(act==='pendente') marcarStatus(oid,'pendente');
+        else if(act==='pago')    togglePago(oid);
+        else if(act==='copiar')  copiarPedido(oid);
+        else if(act==='editar')  editarPedido(oid);
+        else if(act==='excluir') deletePedido(oid);
+      };
+    })(o.id));
+
+    el.appendChild(div);
+  });
 }
+
 function filterPedidos(f,btn){pedidoFiltro=f;document.querySelectorAll('#page-pedidos .tab').forEach(function(t){t.classList.remove('active');});btn.classList.add('active');renderPedidos(f);}
 async function marcarStatus(id,status){
   var o=db.pedidos.find(function(p){return p.id===id;});if(!o)return;
