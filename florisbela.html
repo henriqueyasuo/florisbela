@@ -548,7 +548,7 @@ async function loadDB(){
     ]);
     db.clientes=results[0].map(function(r){return{id:r.id,nome:r.nome,tel:r.tel||'',bairro:r.bairro||'',endereco:r.endereco||'',obs:r.obs||''};});
     db.produtos=results[1].map(function(r){return{id:r.id,nome:r.nome,cat:r.cat||'outro',preco:+r.preco||0,unidade:r.unidade||'un',ing:r.ing||'',obs:r.obs||'',foto:r.foto||'',oculto:!!r.oculto};});
-    db.pedidos=results[2].map(function(r){return{id:r.id,numero:r.numero||null,clienteId:r.cliente_id,data:r.data,itens:r.itens||[],status:r.status||'pendente',pago:!!r.pago,desconto:+r.desconto||0,obs:r.obs||'',total:+r.total||0};});
+    db.pedidos=results[2].map(function(r){return{id:r.id,numero:r.numero||null,clienteId:r.cliente_id,data:r.data,criadoEm:r.criado_em||null,itens:r.itens||[],status:r.status||'pendente',pago:!!r.pago,desconto:+r.desconto||0,obs:r.obs||'',total:+r.total||0};});
     hideLoading();
     document.getElementById('db-retry').classList.remove('show');
     renderDashboard();
@@ -768,6 +768,13 @@ function renderPedidos(filtro){
     var cl=getCliente(o.clienteId);
     var itens=o.itens.map(function(i){return i.qty+'× '+getProduto(i.prodId).nome;}).join(', ');
     var d=o.data?o.data.split('-'):['','',''];
+    var criadoStr='';
+    if(o.criadoEm){
+      var dc=new Date(o.criadoEm);
+      var ddC=String(dc.getDate()).padStart(2,'0');
+      var mmC=String(dc.getMonth()+1).padStart(2,'0');
+      criadoStr='<span style="font-size:11px;color:var(--text3)"> · criado '+ddC+'/'+mmC+'</span>';
+    }
     var numLabel=o.numero?'<span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-light);padding:2px 8px;border-radius:20px">Nº '+o.numero+'</span>':'';
     var descontoLabel=o.desconto>0?'<span style="font-size:11px;font-weight:600;color:var(--danger);background:var(--danger-bg);padding:2px 8px;border-radius:20px">− '+fmtBRL(o.desconto)+'</span>':'';
     var pagoLabel=o.pago?'<span style="font-size:11px;font-weight:600;color:var(--success);background:var(--success-bg);padding:2px 8px;border-radius:20px">Pago</span>':'<span style="font-size:11px;font-weight:600;color:var(--warn);background:var(--warn-bg);padding:2px 8px;border-radius:20px">Aguard. pgto</span>';
@@ -950,6 +957,54 @@ async function salvarPedido(){
   }
 }
 
+
+
+// ===== COPIAR PEDIDO =====
+function copiarPedido(id){
+  var o=db.pedidos.find(function(p){return p.id===id;});
+  if(!o)return;
+  var cl=getCliente(o.clienteId);
+  var d=o.data?o.data.split('-'):['','',''];
+  var dataEntrega=d[2]+'/'+d[1]+'/'+d[0];
+  var linhas=[];
+  linhas.push('🌾 *FLORISBELA — Panificação Artesanal*');
+  linhas.push('');
+  if(o.numero) linhas.push('📋 *Pedido Nº '+o.numero+'*');
+  linhas.push('📅 Entrega: *'+dataEntrega+'*');
+  linhas.push('👤 Cliente: *'+cl.nome+'*');
+  if(cl.tel) linhas.push('📱 '+cl.tel);
+  linhas.push('');
+  linhas.push('*🛒 Itens:*');
+  var subtotal=0;
+  o.itens.forEach(function(i){
+    var p=getProduto(i.prodId);
+    var valor=p.preco*i.qty;
+    subtotal+=valor;
+    linhas.push('  • '+i.qty+'× '+p.nome+' — '+fmtBRL(valor));
+  });
+  linhas.push('');
+  if(o.desconto>0){
+    linhas.push('Subtotal: '+fmtBRL(subtotal));
+    linhas.push('Desconto: − '+fmtBRL(o.desconto));
+  }
+  linhas.push('💰 *Total: '+fmtBRL(o.total)+'*');
+  linhas.push('');
+  linhas.push('💳 *Pagamento via Pix:*');
+  linhas.push('  Chave: (11) 98045-1664');
+  if(o.obs){
+    linhas.push('');
+    linhas.push('📝 Obs: '+o.obs);
+  }
+  var texto=linhas.join('\n');
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(texto).then(function(){toast('Detalhes copiados! Cole no WhatsApp.');});
+  } else {
+    var ta=document.createElement('textarea');
+    ta.value=texto;document.body.appendChild(ta);ta.select();
+    document.execCommand('copy');document.body.removeChild(ta);
+    toast('Detalhes copiados! Cole no WhatsApp.');
+  }
+}
 
 // ===== RELATÓRIOS =====
 function getDateRange(periodo){
