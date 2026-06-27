@@ -788,7 +788,7 @@ async function togglePago(id){
   var o=db.pedidos.find(function(p){return p.id===id;});if(!o)return;
   o.pago=!o.pago;
   try{
-    await sbUpsert('pedidos',{id:o.id,numero:o.numero||null,cliente_id:o.clienteId,data:o.data,itens:o.itens,status:o.status,pago:o.pago,obs:o.obs||'',total:o.total});
+    await sbUpsert('pedidos',{id:o.id,numero:o.numero||null,cliente_id:o.clienteId,data:o.data,itens:o.itens,status:o.status,pago:o.pago,desconto:o.desconto||0,obs:o.obs||'',total:o.total});
     renderPedidos(pedidoFiltro);toast(o.pago?'Marcado como pago!':'Marcado como pendente.');
   }catch(e){o.pago=!o.pago;toast('Erro ao atualizar.');}
 }
@@ -890,30 +890,66 @@ function limparClientePedido(){
 async function salvarPedido(){
   var clienteId=document.getElementById('pd-cliente').value;
   if(!clienteId){toast('Selecione um cliente');return;}
-  var itens=[];var total=0;
-  db.produtos.forEach(function(p){if(pedidoQtds[p.id]>0){itens.push({prodId:p.id,qty:pedidoQtds[p.id]});total+=p.preco*pedidoQtds[p.id];}});
+  var itens=[];var subtotal=0;
+  db.produtos.forEach(function(p){
+    if(pedidoQtds[p.id]>0){
+      itens.push({prodId:p.id,qty:pedidoQtds[p.id]});
+      subtotal+=p.preco*pedidoQtds[p.id];
+    }
+  });
   if(!itens.length){toast('Adicione ao menos um produto');return;}
+  var desconto=Math.max(0,parseFloat(document.getElementById('pd-desconto').value)||0);
+  var total=Math.max(0,Math.round((subtotal-desconto)*100)/100);
   var existingId=document.getElementById('pd-id').value;
   if(existingId){
     var existing=db.pedidos.find(function(p){return p.id===existingId;});
-    var obj=Object.assign({},existing,{clienteId:clienteId,data:document.getElementById('pd-data').value,itens:itens,pago:document.getElementById('pd-pago').checked,desconto:descontoVal,obs:document.getElementById('pd-obs').value.trim(),total:Math.round(total*100)/100});
+    if(!existing){toast('Pedido não encontrado.');return;}
+    var obj=Object.assign({},existing,{
+      clienteId:clienteId,
+      data:document.getElementById('pd-data').value,
+      itens:itens,
+      pago:document.getElementById('pd-pago').checked,
+      desconto:desconto,
+      obs:document.getElementById('pd-obs').value.trim(),
+      total:total
+    });
     try{
       showLoading('Salvando...');
-      await sbUpsert('pedidos',{id:obj.id,numero:obj.numero||null,cliente_id:obj.clienteId,data:obj.data,itens:obj.itens,status:obj.status,pago:!!obj.pago,desconto:obj.desconto||0,obs:obj.obs||'',total:obj.total});
-      var idx=db.pedidos.findIndex(function(p){return p.id===existingId;});if(idx>=0)db.pedidos[idx]=obj;
-      hideLoading();closeModal('modal-pedido');renderPedidos(pedidoFiltro);toast('Pedido atualizado!');
-    }catch(e){hideLoading();toast('Erro ao salvar.');}
+      await sbUpsert('pedidos',{
+        id:obj.id,numero:obj.numero||null,cliente_id:obj.clienteId,
+        data:obj.data,itens:obj.itens,status:obj.status,
+        pago:!!obj.pago,desconto:obj.desconto,obs:obj.obs||'',total:obj.total
+      });
+      var idx=db.pedidos.findIndex(function(p){return p.id===existingId;});
+      if(idx>=0)db.pedidos[idx]=obj;
+      hideLoading();closeModal('modal-pedido');renderPedidos(pedidoFiltro);
+      toast('Pedido atualizado!');
+    }catch(e){hideLoading();console.error(e);toast('Erro ao salvar.');}
   }else{
     var maxNum=db.pedidos.reduce(function(m,p){return Math.max(m,p.numero||0);},0);
-    var newObj={id:uid(),numero:maxNum+1,clienteId:clienteId,data:document.getElementById('pd-data').value,itens:itens,status:'pendente',pago:document.getElementById('pd-pago').checked,desconto:desconto,obs:document.getElementById('pd-obs').value.trim(),total:Math.round(total*100)/100};
+    var newObj={
+      id:uid(),numero:maxNum+1,clienteId:clienteId,
+      data:document.getElementById('pd-data').value,
+      itens:itens,status:'pendente',
+      pago:document.getElementById('pd-pago').checked,
+      desconto:desconto,
+      obs:document.getElementById('pd-obs').value.trim(),
+      total:total
+    };
     try{
       showLoading('Registrando...');
-      await sbUpsert('pedidos',{id:newObj.id,numero:newObj.numero,cliente_id:newObj.clienteId,data:newObj.data,itens:newObj.itens,status:newObj.status,pago:!!newObj.pago,desconto:newObj.desconto||0,obs:newObj.obs||'',total:newObj.total});
+      await sbUpsert('pedidos',{
+        id:newObj.id,numero:newObj.numero,cliente_id:newObj.clienteId,
+        data:newObj.data,itens:newObj.itens,status:newObj.status,
+        pago:!!newObj.pago,desconto:newObj.desconto,obs:newObj.obs||'',total:newObj.total
+      });
       db.pedidos.unshift(newObj);
-      hideLoading();closeModal('modal-pedido');renderPedidos(pedidoFiltro);toast('Pedido Nº '+newObj.numero+' registrado!');
-    }catch(e){hideLoading();toast('Erro ao registrar pedido.');}
+      hideLoading();closeModal('modal-pedido');renderPedidos(pedidoFiltro);
+      toast('Pedido Nº '+newObj.numero+' registrado!');
+    }catch(e){hideLoading();console.error(e);toast('Erro ao registrar pedido.');}
   }
 }
+
 
 // ===== RELATÓRIOS =====
 function getDateRange(periodo){
