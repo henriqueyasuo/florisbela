@@ -157,7 +157,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
 .db-retry{background:#3b1f1f;padding:10px 14px;display:none;align-items:center;justify-content:space-between;gap:10px}
 .db-retry.show{display:flex}
 .price{font-variant-numeric:tabular-nums}
-.ficha-item{display:grid;grid-template-columns:1fr 1fr 70px 32px;gap:6px;align-items:center;margin-bottom:6px}
+.ficha-item{display:grid;grid-template-columns:1fr 80px 32px;gap:6px;align-items:center;margin-bottom:6px}
 .ficha-item select,.ficha-item input{padding:8px 8px;font-size:13px;border:0.5px solid var(--border2);border-radius:var(--radius);font-family:inherit;background:var(--bg);color:var(--text)}
 .ficha-remove{width:32px;height:32px;border:none;background:var(--danger-bg);color:var(--danger);border-radius:var(--radius);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px}
 .ficha-add-btn{width:100%;padding:9px;border:1.5px dashed var(--border2);background:transparent;border-radius:var(--radius);color:var(--text2);cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;margin-top:2px}
@@ -165,6 +165,9 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
 .custo-box .valor{font-size:16px;font-weight:700;color:var(--accent)}
 .legacy-details{margin-top:10px}
 .legacy-details summary{cursor:pointer;font-size:12px;color:var(--text2);font-weight:500;padding:4px 0}
+.drag-handle{touch-action:none;cursor:grab;color:var(--text3);padding:6px 4px;margin:-6px 0 -6px -6px;display:flex;align-items:center;font-size:18px;flex-shrink:0;align-self:stretch}
+.drag-handle:active{cursor:grabbing}
+.card.dragging{opacity:0.55;box-shadow:0 6px 20px rgba(0,0,0,0.25);position:relative;z-index:10}
 </style>
 </head>
 <body>
@@ -344,13 +347,13 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
   <div class="modal-handle"></div>
   <div class="modal-title" id="modal-cliente-title">Novo cliente</div>
   <input type="hidden" id="cl-id">
-  <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="cl-nome" placeholder="Nome completo"></div>
+  <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="cl-nome"></div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Telefone / WhatsApp</label><input class="form-input" id="cl-tel" type="tel" placeholder="(17) 99999-9999"></div>
-    <div class="form-group"><label class="form-label">Bairro</label><input class="form-input" id="cl-bairro" placeholder="Centro..."></div>
+    <div class="form-group"><label class="form-label">Telefone / WhatsApp</label><input class="form-input" id="cl-tel" type="tel"></div>
+    <div class="form-group"><label class="form-label">Bairro</label><input class="form-input" id="cl-bairro"></div>
   </div>
-  <div class="form-group"><label class="form-label">Endereço</label><input class="form-input" id="cl-endereco" placeholder="Rua, número..."></div>
-  <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" id="cl-obs" placeholder="Preferências, restrições..."></textarea></div>
+  <div class="form-group"><label class="form-label">Endereço</label><input class="form-input" id="cl-endereco"></div>
+  <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" id="cl-obs"></textarea></div>
   <div style="display:flex;gap:8px;margin-top:4px">
     <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-cliente')">Cancelar</button>
     <button class="btn btn-primary" style="flex:2" onclick="salvarCliente()"><i class="ti ti-check"></i>Salvar</button>
@@ -363,13 +366,19 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
   <div class="modal-handle"></div>
   <div class="modal-title" id="modal-insumo-title">Novo insumo</div>
   <input type="hidden" id="in-id">
-  <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="in-nome" placeholder="Ex: Mussarela"></div>
-  <div class="form-group"><label class="form-label">Fabricante</label><input class="form-input" id="in-fabricante" placeholder="Ex: Latelli"></div>
-  <div class="form-row">
-    <div class="form-group"><label class="form-label">Embalagem (g) *</label><input class="form-input" id="in-embalagem-qtd" type="number" min="0" step="1" placeholder="1000" oninput="atualizarCustoInsumoPreview()"></div>
-    <div class="form-group"><label class="form-label">Valor da embalagem (R$) *</label><input class="form-input" id="in-embalagem-valor" type="number" min="0" step="0.01" placeholder="40,00" oninput="atualizarCustoInsumoPreview()"></div>
+  <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="in-nome"></div>
+  <div class="form-group"><label class="form-label">Fabricante</label><input class="form-input" id="in-fabricante"></div>
+  <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="form-group"><label class="form-label">Tipo *</label>
+      <select class="form-input" id="in-tipo" onchange="atualizarTipoInsumoUI()">
+        <option value="g">Pacote/Peça</option>
+        <option value="un">Unidade</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label" id="in-qtd-label">Qtde (g) *</label><input class="form-input" id="in-embalagem-qtd" type="number" min="0" step="1" oninput="atualizarCustoInsumoPreview()"></div>
+    <div class="form-group"><label class="form-label">Preço (R$) *</label><input class="form-input" id="in-embalagem-valor" type="number" min="0" step="0.01" oninput="atualizarCustoInsumoPreview()"></div>
   </div>
-  <div class="custo-box"><span>Custo por grama</span><span class="valor" id="in-custo-preview">R$ 0,00</span></div>
+  <div class="custo-box"><span id="in-custo-label">Custo por grama</span><span class="valor" id="in-custo-preview">R$ 0,00</span></div>
   <div style="display:flex;gap:8px;margin-top:14px">
     <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-insumo')">Cancelar</button>
     <button class="btn btn-primary" style="flex:2" onclick="salvarInsumo()"><i class="ti ti-check"></i>Salvar</button>
@@ -383,7 +392,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
   <div class="modal-title" id="modal-produto-title">Novo produto</div>
   <input type="hidden" id="pr-id">
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="pr-nome" placeholder="Ex: Pizza Margherita"></div>
+    <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="pr-nome"></div>
     <div class="form-group"><label class="form-label">Categoria</label>
       <select class="form-input" id="pr-cat"><option value="pizza">Pizza</option><option value="pao">Pão</option><option value="outro">Outro</option></select>
     </div>
@@ -406,21 +415,11 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
     <button type="button" id="pr-foto-remove" style="display:none;margin-top:6px;font-size:12px;color:var(--danger);background:none;border:none;cursor:pointer;padding:0" onclick="removeFoto()"><i class="ti ti-x"></i> Remover foto</button>
   </div>
   <div class="form-group">
-    <label class="toggle-row" for="pr-subreceita">
-      <span><span style="font-size:14px;font-weight:500">Sub-receita (usável como ingrediente)</span><br><span style="font-size:12px;color:var(--text2)">Ex: Massa de Fermentação Natural, molho base...</span></span>
-      <div class="toggle-wrap"><input type="checkbox" id="pr-subreceita" class="toggle-input" onchange="toggleSubReceitaUI()"><span class="toggle-slider"></span></div>
-    </label>
-  </div>
-  <div class="form-group" id="pr-rendimento-wrap" style="display:none">
-    <label class="form-label">Rendimento total da receita (g) *</label>
-    <input class="form-input" id="pr-rendimento" type="number" min="0" step="1" placeholder="Ex: 5000" oninput="atualizarCustoFichaPreview()">
-  </div>
-  <div class="form-group">
     <label class="form-label" style="margin-bottom:8px" id="pr-ficha-label">Ficha técnica</label>
     <div id="pr-ficha-itens"></div>
     <button type="button" class="ficha-add-btn" onclick="addFichaItem()"><i class="ti ti-plus" style="vertical-align:-2px"></i> Adicionar ingrediente</button>
     <div class="custo-box">
-      <span id="pr-custo-label">Custo de material (por unidade)</span>
+      <span>Custo de material (por unidade)</span>
       <span class="valor" id="pr-custo-preview">R$ 0,00</span>
     </div>
   </div>
@@ -428,7 +427,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
     <summary>Ingredientes em texto livre (legado / opcional)</summary>
     <textarea class="form-input" id="pr-ing" placeholder="Usado só se a ficha técnica acima estiver vazia" style="min-height:70px;margin-top:8px"></textarea>
   </details>
-  <div class="form-group"><label class="form-label">Observações</label><input class="form-input" id="pr-obs" placeholder="Sob encomenda, congelado..."></div>
+  <div class="form-group"><label class="form-label">Observações</label><input class="form-input" id="pr-obs"></div>
   <div class="form-group">
     <label class="toggle-row" for="pr-oculto">
       <span><span style="font-size:14px;font-weight:500">Ocultar do cardápio</span><br><span style="font-size:12px;color:var(--text2)">Produto não aparece no cardápio</span></span>
@@ -473,7 +472,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
   <div class="order-summary" id="pd-summary"></div>
   <div class="form-group" style="margin-top:12px">
     <label class="form-label">Desconto (R$)</label>
-    <input class="form-input" id="pd-desconto" type="number" min="0" step="0.50" placeholder="0,00" oninput="updatePedidoSummary()">
+    <input class="form-input" id="pd-desconto" type="number" min="0" step="0.50" oninput="updatePedidoSummary()">
   </div>
   <div class="form-group">
     <label class="toggle-row" for="pd-pago">
@@ -481,7 +480,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.5}
       <div class="toggle-wrap"><input type="checkbox" id="pd-pago" class="toggle-input"><span class="toggle-slider"></span></div>
     </label>
   </div>
-  <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" id="pd-obs" placeholder="Endereço, horário de entrega..."></textarea></div>
+  <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" id="pd-obs"></textarea></div>
   <div style="display:flex;gap:8px;margin-top:4px">
     <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-pedido')">Cancelar</button>
     <button class="btn btn-primary" style="flex:2" id="pd-salvar-btn" onclick="salvarPedido()"><i class="ti ti-check"></i>Registrar</button>
@@ -560,13 +559,11 @@ function openModal(id){
   if(id==='modal-produto'){
     document.getElementById('modal-produto-title').textContent='Novo produto';
     document.getElementById('pr-id').value='';
-    ['pr-nome','pr-preco','pr-ing','pr-obs','pr-rendimento'].forEach(function(i){document.getElementById(i).value='';});
+    ['pr-nome','pr-preco','pr-ing','pr-obs'].forEach(function(i){document.getElementById(i).value='';});
     document.getElementById('pr-cat').value='pizza';
     document.getElementById('pr-unidade').value='un';
     document.getElementById('pr-oculto').checked=false;
-    document.getElementById('pr-subreceita').checked=false;
     fichaAtual=[];
-    toggleSubReceitaUI();
     renderFichaItens();
     setFotoPreview('');
   }
@@ -574,7 +571,8 @@ function openModal(id){
     document.getElementById('modal-insumo-title').textContent='Novo insumo';
     document.getElementById('in-id').value='';
     ['in-nome','in-fabricante','in-embalagem-qtd','in-embalagem-valor'].forEach(function(i){document.getElementById(i).value='';});
-    document.getElementById('in-custo-preview').textContent='R$ 0,00';
+    document.getElementById('in-tipo').value='g';
+    atualizarTipoInsumoUI();
   }
   document.getElementById(id).classList.add('open');
   setTimeout(function(){var inp=document.querySelector('#'+id+' .form-input');if(inp)inp.focus();},100);
@@ -599,10 +597,7 @@ function openModalEdit(id,data){
     document.getElementById('pr-ing').value=data.ing||'';
     document.getElementById('pr-obs').value=data.obs||'';
     document.getElementById('pr-oculto').checked=!!data.oculto;
-    document.getElementById('pr-subreceita').checked=!!data.ehSubReceita;
-    document.getElementById('pr-rendimento').value=data.rendimento||'';
-    fichaAtual=(data.ficha||[]).map(function(it){return{tipo:it.tipo,ref:it.ref,qtd:it.qtd};});
-    toggleSubReceitaUI();
+    fichaAtual=(data.ficha||[]).map(function(it){return{ref:it.ref,qtd:it.qtd};});
     renderFichaItens();
     setFotoPreview(data.foto||'');
   }
@@ -611,9 +606,10 @@ function openModalEdit(id,data){
     document.getElementById('in-id').value=data.id;
     document.getElementById('in-nome').value=data.nome;
     document.getElementById('in-fabricante').value=data.fabricante||'';
+    document.getElementById('in-tipo').value=data.tipo==='un'?'un':'g';
     document.getElementById('in-embalagem-qtd').value=data.embalagemQtd||'';
     document.getElementById('in-embalagem-valor').value=data.embalagemValor||'';
-    atualizarCustoInsumoPreview();
+    atualizarTipoInsumoUI();
   }
   document.getElementById(id).classList.add('open');
 }
@@ -631,9 +627,9 @@ async function loadDB(){
       sbGet('insumos','nome.asc')
     ]);
     db.clientes=results[0].map(function(r){return{id:r.id,nome:r.nome,tel:r.tel||'',bairro:r.bairro||'',endereco:r.endereco||'',obs:r.obs||''};});
-    db.produtos=results[1].map(function(r){return{id:r.id,nome:r.nome,cat:r.cat||'outro',preco:+r.preco||0,unidade:r.unidade||'un',ing:r.ing||'',obs:r.obs||'',foto:r.foto||'',oculto:!!r.oculto,ficha:r.ficha||[],ehSubReceita:!!r.eh_sub_receita,rendimento:+r.rendimento||0};});
+    db.produtos=results[1].map(function(r){return{id:r.id,nome:r.nome,cat:r.cat||'outro',preco:+r.preco||0,unidade:r.unidade||'un',ing:r.ing||'',obs:r.obs||'',foto:r.foto||'',oculto:!!r.oculto,ficha:r.ficha||[],ordem:(r.ordem==null?null:+r.ordem)};});
     db.pedidos=results[2].map(function(r){return{id:r.id,numero:r.numero||null,clienteId:r.cliente_id,data:r.data,criadoEm:r.criado_em||null,itens:r.itens||[],status:r.status||'pendente',pago:!!r.pago,desconto:+r.desconto||0,obs:r.obs||'',total:+r.total||0};});
-    db.insumos=results[3].map(function(r){return{id:r.id,nome:r.nome,fabricante:r.fabricante||'',embalagemQtd:+r.embalagem_qtd||0,embalagemValor:+r.embalagem_valor||0};});
+    db.insumos=results[3].map(function(r){return{id:r.id,nome:r.nome,fabricante:r.fabricante||'',tipo:r.tipo==='un'?'un':'g',embalagemQtd:+r.embalagem_qtd||0,embalagemValor:+r.embalagem_valor||0};});
     hideLoading();
     document.getElementById('db-retry').classList.remove('show');
     renderDashboard();
@@ -655,41 +651,34 @@ function statusBadge(s){if(s==='entregue')return '<span class="badge badge-entre
 
 // ===== CUSTO / FICHA TÉCNICA =====
 function getInsumo(id){return db.insumos.find(function(i){return i.id===id;});}
-function custoPorGramaInsumo(ins){var q=+((ins&&ins.embalagemQtd)||0);return q>0?(+((ins&&ins.embalagemValor)||0))/q:0;}
-// Calcula o custo total da ficha de um produto (soma dos itens, em R$).
-// Para sub-receitas isso é o custo do LOTE inteiro; divida por rendimento para custo/g.
-function custoFichaProduto(produtoId,visited){
-  visited=visited||[];
-  if(visited.indexOf(produtoId)>=0)return 0; // proteção contra referência circular
+function custoPorUnidadeBase(ins){var q=+((ins&&ins.embalagemQtd)||0);return q>0?(+((ins&&ins.embalagemValor)||0))/q:0;}
+// Custo total da ficha de um produto (soma de qtd × custo por g/un de cada insumo)
+function custoFichaProduto(produtoId){
   var p=db.produtos.find(function(x){return x.id===produtoId;});
   if(!p||!p.ficha||!p.ficha.length)return 0;
-  var v2=visited.concat([produtoId]);
   var total=0;
   p.ficha.forEach(function(item){
     var qtd=+item.qtd||0;
     if(!qtd||!item.ref)return;
-    if(item.tipo==='insumo'){
-      var ins=getInsumo(item.ref);
-      if(ins)total+=qtd*custoPorGramaInsumo(ins);
-    }else if(item.tipo==='produto'){
-      var sub=db.produtos.find(function(x){return x.id===item.ref;});
-      if(sub&&sub.rendimento>0){
-        var custoSub=custoFichaProduto(sub.id,v2);
-        total+=qtd*(custoSub/sub.rendimento);
-      }
-    }
+    var ins=getInsumo(item.ref);
+    if(ins)total+=qtd*custoPorUnidadeBase(ins);
   });
   return total;
 }
 // Texto de ingredientes derivado da ficha técnica (com fallback pro campo legado)
 function fichaIngredientesTexto(p){
   if(p.ficha&&p.ficha.length){
-    return p.ficha.map(function(it){
-      if(it.tipo==='insumo'){var ins=getInsumo(it.ref);return ins?ins.nome:null;}
-      var sub=db.produtos.find(function(x){return x.id===it.ref;});return sub?sub.nome:null;
-    }).filter(Boolean).join('\n');
+    return p.ficha.map(function(it){var ins=getInsumo(it.ref);return ins?ins.nome:null;}).filter(Boolean).join('\n');
   }
   return p.ing||'';
+}
+// Ordenação de produtos: ordem definida pelo usuário (arraste), depois nome
+function sortByOrdem(list){
+  return list.slice().sort(function(a,b){
+    var oa=(a.ordem==null?999999:a.ordem),ob=(b.ordem==null?999999:b.ordem);
+    if(oa!==ob)return oa-ob;
+    return a.nome.localeCompare(b.nome,'pt-BR');
+  });
 }
 
 // ===== NAVIGATION =====
@@ -796,10 +785,11 @@ function renderInsumos(list){
   if(!list.length){el.innerHTML='<div class="empty-state"><i class="ti ti-shopping-cart-plus"></i><p>Nenhum insumo ainda.<br>Toque + para adicionar.</p></div>';return;}
   el.innerHTML='';
   list.forEach(function(i){
-    var custoG=custoPorGramaInsumo(i);
+    var custoBase=custoPorUnidadeBase(i);
+    var unid=i.tipo==='un'?'un':'g';
     var div=document.createElement('div');
     div.className='card';
-    div.innerHTML='<div class="card-row"><div style="flex:1"><div class="card-name">'+esc(i.nome)+'</div><div class="card-sub">'+(i.fabricante?esc(i.fabricante)+' · ':'')+i.embalagemQtd+'g por '+fmtBRL(i.embalagemValor)+'</div><div class="card-sub" style="color:var(--accent);font-weight:600">'+fmtBRL(custoG)+' / g</div></div><div class="card-actions"><button class="btn-icon" aria-label="Editar"><i class="ti ti-edit"></i></button><button class="btn-icon" aria-label="Excluir"><i class="ti ti-trash"></i></button></div></div>';
+    div.innerHTML='<div class="card-row"><div style="flex:1"><div class="card-name">'+esc(i.nome)+'</div><div class="card-sub">'+(i.fabricante?esc(i.fabricante)+' · ':'')+(i.tipo==='un'?'Unidade':'Pacote/Peça')+' · '+i.embalagemQtd+(i.tipo==='un'?' un':'g')+' por '+fmtBRL(i.embalagemValor)+'</div><div class="card-sub" style="color:var(--accent);font-weight:600">'+fmtBRL(custoBase)+' / '+unid+'</div></div><div class="card-actions"><button class="btn-icon" aria-label="Editar"><i class="ti ti-edit"></i></button><button class="btn-icon" aria-label="Excluir"><i class="ti ti-trash"></i></button></div></div>';
     var btns=div.querySelectorAll('.btn-icon[aria-label]');
     btns[0].addEventListener('click',(function(id){return function(){editarInsumo(id);};})(i.id));
     btns[1].addEventListener('click',(function(id){return function(){deleteInsumo(id);};})(i.id));
@@ -808,6 +798,12 @@ function renderInsumos(list){
 }
 function filterInsumos(q){renderInsumos(db.insumos.filter(function(i){return i.nome.toLowerCase().includes(q.toLowerCase())||(i.fabricante||'').toLowerCase().includes(q.toLowerCase());}));}
 function editarInsumo(id){var i=db.insumos.find(function(x){return x.id===id;});if(!i)return;openModalEdit('modal-insumo',i);}
+function atualizarTipoInsumoUI(){
+  var un=document.getElementById('in-tipo').value==='un';
+  document.getElementById('in-qtd-label').textContent=un?'Qtde (un) *':'Qtde (g) *';
+  document.getElementById('in-custo-label').textContent=un?'Custo por unidade':'Custo por grama';
+  atualizarCustoInsumoPreview();
+}
 function atualizarCustoInsumoPreview(){
   var q=+document.getElementById('in-embalagem-qtd').value||0;
   var v=+document.getElementById('in-embalagem-valor').value||0;
@@ -817,19 +813,19 @@ async function salvarInsumo(){
   var nome=document.getElementById('in-nome').value.trim();
   var qtd=+document.getElementById('in-embalagem-qtd').value;
   var valor=+document.getElementById('in-embalagem-valor').value;
-  if(!nome||!qtd||!valor){toast('Nome, embalagem e valor são obrigatórios');return;}
+  if(!nome||!qtd||!valor){toast('Nome, quantidade e preço são obrigatórios');return;}
   var id=document.getElementById('in-id').value;
-  var obj={id:id||uid(),nome:nome,fabricante:document.getElementById('in-fabricante').value.trim(),embalagemQtd:qtd,embalagemValor:valor};
+  var obj={id:id||uid(),nome:nome,fabricante:document.getElementById('in-fabricante').value.trim(),tipo:document.getElementById('in-tipo').value,embalagemQtd:qtd,embalagemValor:valor};
   try{
     showLoading('Salvando...');
-    await sbFetch('insumos?on_conflict=id','POST',{id:obj.id,nome:obj.nome,fabricante:obj.fabricante,embalagem_qtd:obj.embalagemQtd,embalagem_valor:obj.embalagemValor},'resolution=merge-duplicates,return=representation');
+    await sbFetch('insumos?on_conflict=id','POST',{id:obj.id,nome:obj.nome,fabricante:obj.fabricante,tipo:obj.tipo,embalagem_qtd:obj.embalagemQtd,embalagem_valor:obj.embalagemValor},'resolution=merge-duplicates,return=representation');
     if(id){var i=db.insumos.findIndex(function(x){return x.id===id;});if(i>=0)db.insumos[i]=obj;}else db.insumos.push(obj);
     hideLoading();closeModal('modal-insumo');renderInsumos(db.insumos);
     toast(id?'Insumo atualizado!':'Insumo cadastrado!');
   }catch(e){hideLoading();toast('Erro ao salvar.');}
 }
 async function deleteInsumo(id){
-  var emUso=db.produtos.some(function(p){return p.ficha&&p.ficha.some(function(it){return it.tipo==='insumo'&&it.ref===id;});});
+  var emUso=db.produtos.some(function(p){return p.ficha&&p.ficha.some(function(it){return it.ref===id;});});
   if(emUso){toast('Este insumo está em uso em uma ficha técnica.');return;}
   var ok=await appConfirm('Excluir insumo?','Esta ação não pode ser desfeita.');
   if(!ok)return;
@@ -837,48 +833,30 @@ async function deleteInsumo(id){
 }
 
 // ===== FICHA TÉCNICA (editor dentro do modal de produto) =====
-function toggleSubReceitaUI(){
-  var on=document.getElementById('pr-subreceita').checked;
-  document.getElementById('pr-rendimento-wrap').style.display=on?'block':'none';
-  document.getElementById('pr-custo-label').textContent=on?'Custo do lote (rendimento total)':'Custo de material (por unidade)';
-  atualizarCustoFichaPreview();
-}
-function fichaOpcoesProdutoHtml(selecionado,excluirId){
-  return db.produtos.filter(function(p){return p.ehSubReceita&&p.id!==excluirId;}).map(function(p){
-    return '<option value="'+p.id+'"'+(p.id===selecionado?' selected':'')+'>'+esc(p.nome)+'</option>';
-  }).join('');
-}
 function fichaOpcoesInsumoHtml(selecionado){
-  return db.insumos.map(function(i){return '<option value="'+i.id+'"'+(i.id===selecionado?' selected':'')+'>'+esc(i.nome)+'</option>';}).join('');
+  return db.insumos.slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');}).map(function(i){return '<option value="'+i.id+'"'+(i.id===selecionado?' selected':'')+'>'+esc(i.nome)+'</option>';}).join('');
 }
 function renderFichaItens(){
   var el=document.getElementById('pr-ficha-itens');
-  var excluirId=document.getElementById('pr-id').value;
   if(!fichaAtual.length){el.innerHTML='<div style="font-size:12px;color:var(--text2);padding:4px 0 8px">Nenhum ingrediente na ficha ainda.</div>';atualizarCustoFichaPreview();return;}
   el.innerHTML=fichaAtual.map(function(item,idx){
-    var refOptions=item.tipo==='insumo'
-      ?'<option value="">Selecione o insumo</option>'+fichaOpcoesInsumoHtml(item.ref)
-      :'<option value="">Selecione a sub-receita</option>'+fichaOpcoesProdutoHtml(item.ref,excluirId);
+    var ins=item.ref?getInsumo(item.ref):null;
+    var unidPlaceholder=ins?(ins.tipo==='un'?'un':'g'):'qtd';
     return '<div class="ficha-item">'+
-      '<select onchange="updateFichaItem('+idx+',\'tipo\',this.value)">'+
-        '<option value="insumo"'+(item.tipo==='insumo'?' selected':'')+'>Insumo</option>'+
-        '<option value="produto"'+(item.tipo==='produto'?' selected':'')+'>Sub-receita</option>'+
-      '</select>'+
-      '<select onchange="updateFichaItem('+idx+',\'ref\',this.value)">'+refOptions+'</select>'+
-      '<input type="number" min="0" step="1" placeholder="gramas" value="'+(item.qtd||'')+'" oninput="updateFichaItem('+idx+',\'qtd\',this.value)">'+
+      '<select onchange="updateFichaItem('+idx+',\'ref\',this.value)"><option value="">Selecione o insumo</option>'+fichaOpcoesInsumoHtml(item.ref)+'</select>'+
+      '<input type="number" min="0" step="1" placeholder="'+unidPlaceholder+'" value="'+(item.qtd||'')+'" oninput="updateFichaItem('+idx+',\'qtd\',this.value)">'+
       '<button type="button" class="ficha-remove" onclick="removeFichaItem('+idx+')"><i class="ti ti-trash"></i></button>'+
     '</div>';
   }).join('');
   atualizarCustoFichaPreview();
 }
-function addFichaItem(){fichaAtual.push({tipo:'insumo',ref:'',qtd:''});renderFichaItens();}
+function addFichaItem(){fichaAtual.push({ref:'',qtd:''});renderFichaItens();}
 function removeFichaItem(idx){fichaAtual.splice(idx,1);renderFichaItens();}
 function updateFichaItem(idx,campo,valor){
   if(!fichaAtual[idx])return;
-  if(campo==='tipo'){fichaAtual[idx].tipo=valor;fichaAtual[idx].ref='';renderFichaItens();return;}
   if(campo==='qtd'){fichaAtual[idx].qtd=+valor||0;atualizarCustoFichaPreview();return;}
   fichaAtual[idx][campo]=valor;
-  atualizarCustoFichaPreview();
+  renderFichaItens();
 }
 // Calcula o custo da ficha em edição (sem depender do produto já estar salvo no db)
 function custoFichaEmEdicao(){
@@ -886,26 +864,13 @@ function custoFichaEmEdicao(){
   fichaAtual.forEach(function(item){
     var qtd=+item.qtd||0;
     if(!qtd||!item.ref)return;
-    if(item.tipo==='insumo'){
-      var ins=getInsumo(item.ref);
-      if(ins)total+=qtd*custoPorGramaInsumo(ins);
-    }else{
-      var sub=db.produtos.find(function(x){return x.id===item.ref;});
-      if(sub&&sub.rendimento>0)total+=qtd*(custoFichaProduto(sub.id)/sub.rendimento);
-    }
+    var ins=getInsumo(item.ref);
+    if(ins)total+=qtd*custoPorUnidadeBase(ins);
   });
   return total;
 }
 function atualizarCustoFichaPreview(){
-  var total=custoFichaEmEdicao();
-  var isSub=document.getElementById('pr-subreceita').checked;
-  if(isSub){
-    var rend=+document.getElementById('pr-rendimento').value||0;
-    var porG=rend>0?total/rend:0;
-    document.getElementById('pr-custo-preview').textContent=fmtBRL(total)+(rend>0?' ('+fmtBRL(porG)+'/g)':'');
-  }else{
-    document.getElementById('pr-custo-preview').textContent=fmtBRL(total);
-  }
+  document.getElementById('pr-custo-preview').textContent=fmtBRL(custoFichaEmEdicao());
 }
 
 // ===== PRODUTOS =====
@@ -916,6 +881,8 @@ function renderProdutos(cat){
   var list=cat==='todos'?db.produtos:db.produtos.filter(function(p){return p.cat===cat;});
   list=list.slice().sort(function(a,b){
     if(cat==='todos'){var co=(catOrder[a.cat]||9)-(catOrder[b.cat]||9);if(co!==0)return co;}
+    var oa=(a.ordem==null?999999:a.ordem),ob=(b.ordem==null?999999:b.ordem);
+    if(oa!==ob)return oa-ob;
     return a.nome.localeCompare(b.nome,'pt-BR');
   });
   if(!list.length){el.innerHTML='<div class="empty-state"><i class="ti ti-bread"></i><p>Nenhum produto.<br>Toque + para adicionar.</p></div>';return;}
@@ -925,27 +892,69 @@ function renderProdutos(cat){
     var chips=ingTexto?ingTexto.split('\n').filter(Boolean).map(function(i){return '<span class="chip">'+esc(i)+'</span>';}).join(''):'';
     var thumb=p.foto?'<img class="prod-thumb" src="'+p.foto+'" alt="'+esc(p.nome)+'" loading="lazy">':'<div class="prod-thumb-placeholder"><i class="ti ti-bread"></i></div>';
     var ocultoLabel=p.oculto?'<span class="oculto-badge"><i class="ti ti-eye-off" style="font-size:10px;vertical-align:-1px"></i> oculto</span>':'';
-    var subLabel=p.ehSubReceita?'<span class="oculto-badge" style="background:var(--accent-light);color:var(--accent)">sub-receita</span>':'';
-    var custo=p.ficha&&p.ficha.length?custoFichaProduto(p.id):0;
     var custoLabel='';
     if(p.ficha&&p.ficha.length){
-      if(p.ehSubReceita&&p.rendimento>0){
-        custoLabel='<div class="card-sub" style="margin-top:4px;color:var(--text2)">Custo do lote: '+fmtBRL(custo)+' · '+fmtBRL(custo/p.rendimento)+'/g</div>';
-      }else{
-        var margem=p.preco>0?Math.round((1-custo/p.preco)*100):0;
-        custoLabel='<div class="card-sub" style="margin-top:4px;color:var(--text2)">Custo material: '+fmtBRL(custo)+' · margem ~'+margem+'%</div>';
-      }
+      var custo=custoFichaProduto(p.id);
+      var margem=p.preco>0?Math.round((1-custo/p.preco)*100):0;
+      custoLabel='<div class="card-sub" style="margin-top:4px;color:var(--text2)">Custo material: '+fmtBRL(custo)+' · margem ~'+margem+'%</div>';
     }
     var div=document.createElement('div');
     div.className='card';
+    div.dataset.id=p.id;
     if(p.oculto)div.style.opacity='0.6';
-    div.innerHTML='<div class="card-row">'+thumb+'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap">'+catTag(p.cat)+'<span class="card-name">'+esc(p.nome)+'</span>'+ocultoLabel+subLabel+'</div>'+(chips?'<div class="ingredient-chips">'+chips+'</div>':'')+custoLabel+(p.obs?'<div class="card-sub" style="margin-top:4px">'+esc(p.obs)+'</div>':'')+'</div><div style="text-align:right;flex-shrink:0;margin-left:10px"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmtBRL(p.preco)+'<span style="font-size:11px;color:var(--text2);font-weight:400">/'+esc(p.unidade||'un')+'</span></div><div class="card-actions" style="justify-content:flex-end;margin-top:8px"><button class="btn-icon" aria-label="Ocultar"><i class="ti ti-eye'+(p.oculto?'':'-off')+'"></i></button><button class="btn-icon" aria-label="Editar"><i class="ti ti-edit"></i></button><button class="btn-icon" aria-label="Excluir"><i class="ti ti-trash"></i></button></div></div></div>';
+    div.innerHTML='<div class="card-row"><div class="drag-handle" title="Arrastar para reordenar"><i class="ti ti-grip-vertical"></i></div>'+thumb+'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap">'+catTag(p.cat)+'<span class="card-name">'+esc(p.nome)+'</span>'+ocultoLabel+'</div>'+(chips?'<div class="ingredient-chips">'+chips+'</div>':'')+custoLabel+(p.obs?'<div class="card-sub" style="margin-top:4px">'+esc(p.obs)+'</div>':'')+'</div><div style="text-align:right;flex-shrink:0;margin-left:10px"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmtBRL(p.preco)+'<span style="font-size:11px;color:var(--text2);font-weight:400">/'+esc(p.unidade||'un')+'</span></div><div class="card-actions" style="justify-content:flex-end;margin-top:8px"><button class="btn-icon" aria-label="Ocultar"><i class="ti ti-eye'+(p.oculto?'':'-off')+'"></i></button><button class="btn-icon" aria-label="Editar"><i class="ti ti-edit"></i></button><button class="btn-icon" aria-label="Excluir"><i class="ti ti-trash"></i></button></div></div></div>';
     var btns=div.querySelectorAll('.card-actions .btn-icon');
     btns[0].addEventListener('click',(function(id){return function(){toggleOculto(id);};})(p.id));
     btns[1].addEventListener('click',(function(id){return function(){editarProduto(id);};})(p.id));
     btns[2].addEventListener('click',(function(id){return function(){deleteProduto(id);};})(p.id));
+    initProdutoDrag(div.querySelector('.drag-handle'),div);
     el.appendChild(div);
   });
+}
+
+// ===== ARRASTAR PARA REORDENAR =====
+function initProdutoDrag(handle,card){
+  handle.addEventListener('pointerdown',function(e){
+    e.preventDefault();
+    var lista=document.getElementById('lista-produtos');
+    card.classList.add('dragging');
+    handle.setPointerCapture(e.pointerId);
+    var moved=false;
+    function onMove(ev){
+      moved=true;
+      var el2=document.elementFromPoint(ev.clientX,ev.clientY);
+      var over=el2&&el2.closest?el2.closest('#lista-produtos .card'):null;
+      if(over&&over!==card){
+        var r=over.getBoundingClientRect();
+        if(ev.clientY<r.top+r.height/2)lista.insertBefore(card,over);
+        else lista.insertBefore(card,over.nextSibling);
+      }
+    }
+    function onUp(ev){
+      handle.removeEventListener('pointermove',onMove);
+      handle.removeEventListener('pointerup',onUp);
+      handle.removeEventListener('pointercancel',onUp);
+      card.classList.remove('dragging');
+      if(moved)salvarOrdemProdutos();
+    }
+    handle.addEventListener('pointermove',onMove);
+    handle.addEventListener('pointerup',onUp);
+    handle.addEventListener('pointercancel',onUp);
+  });
+}
+async function salvarOrdemProdutos(){
+  var cards=Array.prototype.slice.call(document.querySelectorAll('#lista-produtos .card[data-id]'));
+  var updates=[];
+  cards.forEach(function(c2,i){
+    var p=db.produtos.find(function(x){return x.id===c2.dataset.id;});
+    if(p&&p.ordem!==i){p.ordem=i;updates.push({id:p.id,ordem:i});}
+  });
+  if(!updates.length)return;
+  try{
+    await sbFetch('produtos?on_conflict=id','POST',updates,'resolution=merge-duplicates,return=representation');
+    renderProdutos(produtoFiltro);
+    toast('Ordem atualizada!');
+  }catch(e){console.error(e);toast('Erro ao salvar a ordem.');renderProdutos(produtoFiltro);}
 }
 
 function filterProdutos(cat,btn){produtoFiltro=cat;document.querySelectorAll('#page-produtos .tab').forEach(function(t){t.classList.remove('active');});btn.classList.add('active');renderProdutos(cat);}
@@ -959,22 +968,18 @@ async function salvarProduto(){
   var preco=parseFloat(document.getElementById('pr-preco').value);
   if(!nome||!preco){toast('Nome e preço são obrigatórios');return;}
   var id=document.getElementById('pr-id').value;
-  var ehSubReceita=document.getElementById('pr-subreceita').checked;
-  var rendimento=+document.getElementById('pr-rendimento').value||0;
-  var ficha=fichaAtual.filter(function(it){return it.ref&&(+it.qtd)>0;}).map(function(it){return{tipo:it.tipo,ref:it.ref,qtd:+it.qtd};});
-  if(ehSubReceita&&!rendimento){toast('Informe o rendimento da receita (g)');return;}
-  var obj={id:id||uid(),nome:nome,cat:document.getElementById('pr-cat').value,preco:preco,unidade:document.getElementById('pr-unidade').value,ing:document.getElementById('pr-ing').value.trim(),obs:document.getElementById('pr-obs').value.trim(),foto:document.getElementById('pr-foto').value||'',oculto:document.getElementById('pr-oculto').checked,ficha:ficha,ehSubReceita:ehSubReceita,rendimento:rendimento};
+  var ficha=fichaAtual.filter(function(it){return it.ref&&(+it.qtd)>0;}).map(function(it){return{ref:it.ref,qtd:+it.qtd};});
+  var existente=id?db.produtos.find(function(p){return p.id===id;}):null;
+  var obj={id:id||uid(),nome:nome,cat:document.getElementById('pr-cat').value,preco:preco,unidade:document.getElementById('pr-unidade').value,ing:document.getElementById('pr-ing').value.trim(),obs:document.getElementById('pr-obs').value.trim(),foto:document.getElementById('pr-foto').value||'',oculto:document.getElementById('pr-oculto').checked,ficha:ficha,ordem:existente?existente.ordem:null};
   try{
     showLoading('Salvando...');
-    await sbFetch('produtos?on_conflict=id','POST',{id:obj.id,nome:obj.nome,cat:obj.cat,preco:obj.preco,unidade:obj.unidade,ing:obj.ing,obs:obj.obs,foto:obj.foto,oculto:obj.oculto,ficha:obj.ficha,eh_sub_receita:obj.ehSubReceita,rendimento:obj.rendimento},'resolution=merge-duplicates,return=representation');
+    await sbFetch('produtos?on_conflict=id','POST',{id:obj.id,nome:obj.nome,cat:obj.cat,preco:obj.preco,unidade:obj.unidade,ing:obj.ing,obs:obj.obs,foto:obj.foto,oculto:obj.oculto,ficha:obj.ficha,ordem:obj.ordem},'resolution=merge-duplicates,return=representation');
     if(id){var i=db.produtos.findIndex(function(p){return p.id===id;});if(i>=0)db.produtos[i]=obj;}else db.produtos.push(obj);
     hideLoading();closeModal('modal-produto');renderProdutos(produtoFiltro);
     toast(id?'Produto atualizado!':'Produto cadastrado!');
   }catch(e){hideLoading();console.error(e);toast('Erro ao salvar. Tente uma foto menor se houver.');}
 }
 async function deleteProduto(id){
-  var emUso=db.produtos.some(function(p){return p.id!==id&&p.ficha&&p.ficha.some(function(it){return it.tipo==='produto'&&it.ref===id;});});
-  if(emUso){toast('Este produto é usado como sub-receita em outra ficha técnica.');return;}
   var ok=await appConfirm('Excluir produto?','Esta ação não pode ser desfeita.');
   if(!ok)return;
   try{showLoading('Removendo...');await sbDelete('produtos',id);db.produtos=db.produtos.filter(function(p){return p.id!==id;});hideLoading();renderProdutos(produtoFiltro);toast('Produto removido.');}catch(e){hideLoading();toast('Erro ao remover.');}
@@ -984,7 +989,7 @@ async function toggleOculto(id){
   if(!p)return;
   p.oculto=!p.oculto;
   try{
-    await sbFetch('produtos?on_conflict=id','POST',{id:p.id,nome:p.nome,cat:p.cat,preco:p.preco,unidade:p.unidade,ing:p.ing,obs:p.obs,foto:p.foto,oculto:p.oculto,ficha:p.ficha,eh_sub_receita:p.ehSubReceita,rendimento:p.rendimento},'resolution=merge-duplicates,return=representation');
+    await sbFetch('produtos?on_conflict=id','POST',{id:p.id,nome:p.nome,cat:p.cat,preco:p.preco,unidade:p.unidade,ing:p.ing,obs:p.obs,foto:p.foto,oculto:p.oculto,ficha:p.ficha,ordem:p.ordem},'resolution=merge-duplicates,return=representation');
     renderProdutos(produtoFiltro);toast(p.oculto?'Oculto do cardápio.':'Visível no cardápio!');
   }
   catch(e){p.oculto=!p.oculto;toast('Erro ao atualizar.');}
@@ -1166,7 +1171,7 @@ function editarPedido(id){var o=db.pedidos.find(function(p){return p.id===id;});
 function setPdCat(cat,btn){pdCatAtual=cat;document.querySelectorAll('.pd-cat-tab').forEach(function(t){t.classList.remove('active');});btn.classList.add('active');renderPedidoGrid();}
 function renderPedidoGrid(){
   var el=document.getElementById('pd-produtos-grid');
-  var list=db.produtos.filter(function(p){return p.cat===pdCatAtual;});
+  var list=sortByOrdem(db.produtos.filter(function(p){return p.cat===pdCatAtual;}));
   if(!list.length){el.innerHTML='<div style="color:var(--text2);font-size:13px;padding:10px 0;text-align:center">Nenhum produto nesta categoria.</div>';updatePedidoSummary();return;}
   el.innerHTML=list.map(function(p){
     var qty=pedidoQtds[p.id]||0;
@@ -1399,6 +1404,7 @@ function renderCardapioPreview(){
   if(!visiveis.length){el.innerHTML='<div class="empty-state"><i class="ti ti-list"></i><p>Nenhum produto visível.</p></div>';return;}
   var grupos={pizza:[],pao:[],outro:[]};
   visiveis.forEach(function(p){if(grupos[p.cat])grupos[p.cat].push(p);else grupos.outro.push(p);});
+  Object.keys(grupos).forEach(function(k){grupos[k]=sortByOrdem(grupos[k]);});
   var nomes={pizza:'🍕 Pizzas',pao:'🍞 Pães Artesanais',outro:'✨ Outros'};
   var html='<div class="cardapio-card"><div class="cardapio-header"><div style="font-size:22px;font-weight:800">🌾 Florisbela</div><div style="font-size:13px;opacity:0.88;margin-top:2px">Panificação Artesanal</div></div>';
   ['pizza','pao','outro'].forEach(function(cat){
@@ -1420,6 +1426,7 @@ function copiarTextoCardapio(){
   if(!visiveis.length){toast('Nenhum produto visível.');return;}
   var grupos={pizza:[],pao:[],outro:[]};
   visiveis.forEach(function(p){if(grupos[p.cat])grupos[p.cat].push(p);else grupos.outro.push(p);});
+  Object.keys(grupos).forEach(function(k){grupos[k]=sortByOrdem(grupos[k]);});
   var nomes={pizza:'🍕 PIZZAS',pao:'🍞 PÃES ARTESANAIS',outro:'✨ OUTROS'};
   var linhas=['🌾 *FLORISBELA — Panificação Artesanal*',''];
   ['pizza','pao','outro'].forEach(function(cat){
@@ -1438,6 +1445,7 @@ function compartilharWhatsApp(){
   if(!visiveis.length){toast('Nenhum produto visível.');return;}
   var grupos={pizza:[],pao:[],outro:[]};
   visiveis.forEach(function(p){if(grupos[p.cat])grupos[p.cat].push(p);else grupos.outro.push(p);});
+  Object.keys(grupos).forEach(function(k){grupos[k]=sortByOrdem(grupos[k]);});
   var nomes={pizza:'🍕 PIZZAS',pao:'🍞 PÃES ARTESANAIS',outro:'✨ OUTROS'};
   var linhas=['🌾 *FLORISBELA — Panificação Artesanal*',''];
   ['pizza','pao','outro'].forEach(function(cat){
@@ -1463,6 +1471,7 @@ function gerarImagemCardapio(){
   toast('Gerando imagem...');
   var grupos={pizza:[],pao:[],outro:[]};
   visiveis.forEach(function(p){if(grupos[p.cat])grupos[p.cat].push(p);else grupos.outro.push(p);});
+  Object.keys(grupos).forEach(function(k){grupos[k]=sortByOrdem(grupos[k]);});
   var cats=['pizza','pao','outro'].filter(function(c){return grupos[c].length>0;});
   var nomesEmoji={pizza:'🍕 Pizzas',pao:'🍞 Pães Artesanais',outro:'✨ Outros'};
   var W=900,IMG_SZ=60,PAD=16,TEXT_X=PAD+IMG_SZ+22,MAX_TW=W-PAD-30-TEXT_X;
@@ -1537,9 +1546,9 @@ function importarDados(){
         if(!dados.clientes||!dados.produtos||!dados.pedidos){toast('Arquivo inválido.');return;}
         showLoading('Enviando para a nuvem...');
         for(var c of dados.clientes)await sbUpsert('clientes',c);
-        for(var p of dados.produtos)await sbFetch('produtos?on_conflict=id','POST',{id:p.id,nome:p.nome,cat:p.cat,preco:p.preco,unidade:p.unidade,ing:p.ing||'',obs:p.obs||'',foto:p.foto||'',oculto:!!p.oculto,ficha:p.ficha||[],eh_sub_receita:!!p.ehSubReceita,rendimento:+p.rendimento||0},'resolution=merge-duplicates,return=representation');
+        for(var p of dados.produtos)await sbFetch('produtos?on_conflict=id','POST',{id:p.id,nome:p.nome,cat:p.cat,preco:p.preco,unidade:p.unidade,ing:p.ing||'',obs:p.obs||'',foto:p.foto||'',oculto:!!p.oculto,ficha:p.ficha||[],ordem:(p.ordem==null?null:+p.ordem)},'resolution=merge-duplicates,return=representation');
         for(var o of dados.pedidos)await sbUpsert('pedidos',{id:o.id,numero:o.numero||null,cliente_id:o.clienteId,data:o.data,itens:o.itens,status:o.status,pago:!!o.pago,desconto:+o.desconto||0,obs:o.obs||'',total:o.total});
-        if(dados.insumos)for(var ins of dados.insumos)await sbFetch('insumos?on_conflict=id','POST',{id:ins.id,nome:ins.nome,fabricante:ins.fabricante||'',embalagem_qtd:+ins.embalagemQtd||0,embalagem_valor:+ins.embalagemValor||0},'resolution=merge-duplicates,return=representation');
+        if(dados.insumos)for(var ins of dados.insumos)await sbFetch('insumos?on_conflict=id','POST',{id:ins.id,nome:ins.nome,fabricante:ins.fabricante||'',tipo:ins.tipo==='un'?'un':'g',embalagem_qtd:+ins.embalagemQtd||0,embalagem_valor:+ins.embalagemValor||0},'resolution=merge-duplicates,return=representation');
         await loadDB();toast('Backup restaurado!');
       }catch(err){hideLoading();toast('Erro ao restaurar: '+err.message);}
     };
