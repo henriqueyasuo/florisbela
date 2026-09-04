@@ -97,6 +97,7 @@ svg.icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;strok
 .insumo-cost-unit{font-size:11px;color:var(--text2);font-weight:400}
 .ing-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
 .ing-chip{font-size:11px;background:var(--bg2);padding:3px 8px;border-radius:12px;color:var(--text2);white-space:nowrap}
+.ing-chip.base{background:var(--accent-light);color:var(--accent-dark);font-weight:600}
 .recipe-totals{display:flex;gap:14px;margin-top:9px;padding-top:9px;border-top:0.5px solid var(--border)}
 .recipe-total-item{font-size:11px;color:var(--text2)}
 .recipe-total-item b{display:block;font-size:14px;color:var(--text);font-weight:700;font-variant-numeric:tabular-nums}
@@ -112,6 +113,9 @@ svg.icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;strok
 .base-toggle.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .remove-ing-btn{width:34px;height:34px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg);color:var(--danger);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .ing-hint{grid-column:1/-1;font-size:11px;color:var(--text2);margin-top:-4px;padding-left:2px;min-height:14px;font-variant-numeric:tabular-nums}
+.base-status{font-size:11px;font-weight:600;margin-top:8px;padding:0 2px;line-height:1.4}
+.base-status.ok{color:var(--success)}
+.base-status.warn{color:var(--danger)}
 .add-ing-btn{width:100%;margin-top:2px;padding:9px;border-radius:var(--radius);border:1.5px dashed var(--border2);background:transparent;color:var(--accent);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .summary-card{background:var(--accent-light);border-radius:var(--radius);padding:12px;margin-top:12px}
 .summary-row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--accent-dark)}
@@ -222,13 +226,14 @@ svg.icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;strok
     </div>
   </div>
   <div class="form-group" id="rc-pesobase-group" style="display:none">
-    <label class="form-label">Peso do ingrediente base (g) — opcional</label>
-    <input class="form-input" id="rc-pesobase" type="number" step="1" min="0" placeholder="Ex: 1000 (para calcular gramas e custo)">
+    <label class="form-label">Peso total dos ingredientes base (g) — opcional</label>
+    <input class="form-input" id="rc-pesobase" type="number" step="1" min="0" placeholder="Ex: 1000 (soma das farinhas, p/ calcular gramas e custo)">
   </div>
   <div class="form-group">
     <label class="form-label" style="margin-bottom:8px">Ingredientes</label>
     <div class="ing-editor">
       <div id="rc-ing-list"></div>
+      <div class="base-status" id="rc-base-status"></div>
       <button type="button" class="add-ing-btn" onclick="addIngredienteRow()"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Adicionar ingrediente</button>
     </div>
   </div>
@@ -430,6 +435,17 @@ async function deleteInsumo(id){
 
 // ===== RECEITAS: cálculo =====
 function getInsumo(id){return db.insumos.find(function(x){return x.id===id;});}
+function basesDe(arr){return arr.filter(function(r){return r.isBase;});}
+function somaQtd(arr){return arr.reduce(function(s,r){return s+(parseFloat(r.quantidade)||0);},0);}
+function somaBases(arr){return somaQtd(basesDe(arr));}
+// Ordena: ingredientes base sempre no topo, e dentro de cada grupo do maior para o menor.
+function ordenarIngredientes(arr){
+  return arr.slice().sort(function(a,b){
+    var ab=a.isBase?1:0,bb=b.isBase?1:0;
+    if(ab!==bb)return bb-ab;
+    return (parseFloat(b.quantidade)||0)-(parseFloat(a.quantidade)||0);
+  });
+}
 function calcIngrediente(modo,pesoBase,arr,idx){
   var row=arr[idx];
   var insumo=getInsumo(row.insumoId);
@@ -440,8 +456,9 @@ function calcIngrediente(modo,pesoBase,arr,idx){
     if(pesoBase>0)gramas=qty/100*pesoBase;
   }else{
     gramas=qty;
-    var baseRow=arr.find(function(r){return r.isBase;});
-    var ref=baseRow?(parseFloat(baseRow.quantidade)||0):arr.reduce(function(s,r){return s+(parseFloat(r.quantidade)||0);},0);
+    // Referência das %: soma dos ingredientes base (ou o lote inteiro, se nenhum for base)
+    var bases=basesDe(arr);
+    var ref=bases.length?somaQtd(bases):somaQtd(arr);
     pct=ref>0?(qty/ref*100):null;
   }
   if(insumo&&insumo.unidadeMedida==='g'&&gramas!=null&&insumo.tamanho>0){
@@ -485,11 +502,11 @@ function renderReceitas(){
   el.innerHTML='';
   list.forEach(function(r){
     var t=calcTotais(r.modo,r.pesoBase||0,r.ingredientes);
-    var chips=r.ingredientes.map(function(ing){
+    var chips=ordenarIngredientes(r.ingredientes).map(function(ing){
       var insumo=getInsumo(ing.insumoId);
       var nome=insumo?insumo.item:'insumo removido';
       var qtyStr=r.modo==='percentual'?(ing.quantidade+'%'):(fmtNum(ing.quantidade)+'g');
-      return '<span class="ing-chip">'+esc(nome)+' · '+qtyStr+'</span>';
+      return '<span class="ing-chip'+(ing.isBase?' base':'')+'">'+esc(nome)+' · '+qtyStr+'</span>';
     }).join('');
     var pesoStr=t.algumPeso?fmtNum(round1(t.totalGramas))+' g'+(t.completoPeso?'':'~'):'—';
     var custoStr=t.algumCusto?fmtBRL(t.totalCusto)+(t.completoCusto?'':'~'):'—';
@@ -528,7 +545,7 @@ function openModalReceita(data){
   document.getElementById('rc-categoria').value=data?(data.categoria||''):'';
   document.getElementById('rc-modo').value=data?data.modo:'percentual';
   document.getElementById('rc-pesobase').value=data&&data.pesoBase?data.pesoBase:'';
-  rcIngredientesEdit=data?JSON.parse(JSON.stringify(data.ingredientes)):[];
+  rcIngredientesEdit=data?ordenarIngredientes(JSON.parse(JSON.stringify(data.ingredientes))):[];
   onModoChange();
   renderIngredientesEditor();
   document.getElementById('modal-receita').classList.add('open');
@@ -557,8 +574,8 @@ function renderIngredientesEditor(){
       var suffix=modo==='percentual'?'%':'g';
       return '<div class="ing-row" data-idx="'+i+'">'+
         '<select class="form-input ing-select">'+opts+'</select>'+
-        '<div class="ing-qty-wrap"><input class="ing-qty" type="number" step="0.01" min="0" value="'+esc(row.quantidade)+'" placeholder="0"'+(row.isBase?' readonly':'')+'><span class="ing-qty-suffix">'+suffix+'</span></div>'+
-        '<button type="button" class="base-toggle'+(row.isBase?' active':'')+'" title="Marcar como ingrediente base (100%)">B</button>'+
+        '<div class="ing-qty-wrap"><input class="ing-qty" type="number" step="0.01" min="0" value="'+esc(row.quantidade)+'" placeholder="0"><span class="ing-qty-suffix">'+suffix+'</span></div>'+
+        '<button type="button" class="base-toggle'+(row.isBase?' active':'')+'" title="Marcar como ingrediente base (pode marcar mais de um; juntos devem somar 100%)">B</button>'+
         '<button type="button" class="remove-ing-btn" title="Remover"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'+
         '<div class="ing-hint" data-idx-hint="'+i+'"></div>'+
       '</div>';
@@ -577,7 +594,13 @@ document.getElementById('rc-ing-list').addEventListener('click',function(e){
   var baseBtn=e.target.closest('.base-toggle');
   if(baseBtn){
     var idx=+baseBtn.closest('[data-idx]').dataset.idx;
-    rcIngredientesEdit.forEach(function(r,i){r.isBase=(i===idx);if(i===idx&&document.getElementById('rc-modo').value==='percentual')r.quantidade='100';});
+    var row=rcIngredientesEdit[idx];
+    row.isBase=!row.isBase;
+    // Conveniência: primeira base marcada, ainda sem quantidade, já entra como 100%
+    if(row.isBase&&document.getElementById('rc-modo').value==='percentual'&&basesDe(rcIngredientesEdit).length===1&&!(parseFloat(row.quantidade)>0)){
+      row.quantidade='100';
+    }
+    rcIngredientesEdit=ordenarIngredientes(rcIngredientesEdit);
     renderIngredientesEditor();
     return;
   }
@@ -589,7 +612,30 @@ document.getElementById('rc-ing-list').addEventListener('click',function(e){
   }
 });
 document.getElementById('rc-pesobase').addEventListener('input',updateReceitaSummary);
+function updateBaseStatus(){
+  var el=document.getElementById('rc-base-status');
+  var modo=document.getElementById('rc-modo').value;
+  var bases=basesDe(rcIngredientesEdit);
+  if(!bases.length){
+    el.className='base-status';
+    el.textContent=rcIngredientesEdit.length?'Marque com "B" o(s) ingrediente(s) base da receita.':'';
+    return;
+  }
+  var plural=bases.length===1?'ingrediente base':'ingredientes base';
+  if(modo==='peso'){
+    el.className='base-status ok';
+    el.textContent=bases.length+' '+plural+' — as % são calculadas em cima deles.';
+    return;
+  }
+  var soma=Math.round(somaBases(rcIngredientesEdit)*100)/100;
+  var ok=Math.abs(soma-100)<0.01;
+  el.className='base-status '+(ok?'ok':'warn');
+  el.textContent=ok
+    ? bases.length+' '+plural+' somando 100%.'
+    : bases.length+' '+plural+' somando '+fmtNum(soma)+'% — precisa fechar em 100%.';
+}
 function updateReceitaSummary(){
+  updateBaseStatus();
   var modo=document.getElementById('rc-modo').value;
   var pesoBase=parseFloat(document.getElementById('rc-pesobase').value)||0;
   var el=document.getElementById('rc-summary');
@@ -616,6 +662,14 @@ async function salvarReceita(){
   var ingredientesLimpos=rcIngredientesEdit.filter(function(r){return r.insumoId&&parseFloat(r.quantidade)>0;}).map(function(r){return {insumoId:r.insumoId,quantidade:parseFloat(r.quantidade),isBase:!!r.isBase};});
   if(!ingredientesLimpos.length){toast('Adicione ao menos um ingrediente com quantidade.');return;}
   var modo=document.getElementById('rc-modo').value;
+  if(modo==='percentual'){
+    var basesLimpas=basesDe(ingredientesLimpos);
+    if(basesLimpas.length){
+      var somaB=Math.round(somaQtd(basesLimpas)*100)/100;
+      if(Math.abs(somaB-100)>0.01){toast('Os ingredientes base precisam somar 100% (estão em '+fmtNum(somaB)+'%).');return;}
+    }
+  }
+  ingredientesLimpos=ordenarIngredientes(ingredientesLimpos);
   var editId=document.getElementById('rc-id').value;
   var id=editId||uid();
   var pesoBase=modo==='percentual'?(parseFloat(document.getElementById('rc-pesobase').value)||0):0;
