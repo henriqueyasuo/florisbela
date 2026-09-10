@@ -87,7 +87,7 @@ svg.icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;strok
 .empty-state svg{font-size:40px;width:40px;height:40px;margin-bottom:10px}
 .fab{position:fixed;bottom:72px;right:16px;width:52px;height:52px;background:var(--accent);color:#fff;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 4px 12px rgba(200,112,26,0.4);z-index:40;transition:transform 0.15s}
 .fab:active{transform:scale(0.92)}
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:20px;font-size:13px;font-weight:500;z-index:300;opacity:0;transition:opacity 0.2s;pointer-events:none;white-space:nowrap;max-width:90%;text-align:center}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:20px;font-size:13px;font-weight:500;z-index:300;opacity:0;transition:opacity 0.2s;pointer-events:none;max-width:88%;width:max-content;text-align:center;line-height:1.45}
 .toast.show{opacity:1}
 .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
 .confirm-overlay.open{display:flex}
@@ -447,6 +447,16 @@ var opId=null;
 var opQtd=1;
 var opChecked={};
 
+// Extrai a mensagem útil de um erro do Supabase (o corpo vem em JSON)
+function msgErro(e){
+  var m=String((e&&e.message)||e||'erro desconhecido');
+  var j=m.indexOf('{');
+  if(j>=0){
+    try{var o=JSON.parse(m.slice(j));m=o.message||o.hint||o.details||m;}catch(_){}
+  }
+  return m.length>160?m.slice(0,160)+'…':m;
+}
+
 // ===== TOAST / LOADING =====
 function toast(msg){var e=document.getElementById('toast');e.textContent=msg;e.classList.add('show');clearTimeout(window._toastT);window._toastT=setTimeout(function(){e.classList.remove('show');},2600);}
 function showLoading(msg){var e=document.getElementById('toast');e.textContent=msg||'Carregando...';e.classList.add('show');}
@@ -548,7 +558,7 @@ async function loadDB(){
     hideLoading();
     console.error('loadDB error:',e);
     document.getElementById('db-retry').classList.add('show');
-    toast('Erro ao carregar dados. Verifique sua conexão.');
+    toast('Erro ao carregar: '+msgErro(e));
   }
 }
 async function recarregarDados(){document.getElementById('db-retry').classList.remove('show');await loadDB();}
@@ -601,7 +611,7 @@ async function salvarInsumo(){
     if(idx>=0)db.insumos[idx]=local;else db.insumos.push(local);
     hideLoading();closeModal('modal-insumo');renderInsumos();renderReceitas();
     toast(editId?'Insumo atualizado!':'Insumo cadastrado!');
-  }catch(e){hideLoading();console.error(e);toast('Erro ao salvar insumo.');}
+  }catch(e){hideLoading();console.error(e);toast('Erro ao salvar insumo: '+msgErro(e));}
 }
 async function deleteInsumo(id){
   var ok=await appConfirm('Excluir insumo?','Receitas que usam este insumo passarão a mostrar "insumo removido".');
@@ -613,7 +623,7 @@ async function deleteInsumo(id){
     db.receitas.forEach(function(r){r.ingredientes.forEach(function(ing){if(ing.insumoId===id)ing.insumoId=null;});});
     db.produtos.forEach(function(p){p.componentes.forEach(function(c){if(c.tipo==='insumo'&&c.refId===id)c.refId=null;});});
     hideLoading();renderInsumos();renderReceitas();renderProdutos();renderOperacao();toast('Insumo removido.');
-  }catch(e){hideLoading();console.error(e);toast('Erro ao remover.');}
+  }catch(e){hideLoading();console.error(e);toast('Erro ao remover: '+msgErro(e));}
 }
 
 // ===== RECEITAS: cálculo =====
@@ -721,7 +731,7 @@ async function deleteReceita(id){
     // o preparo sai dos produtos que o usavam (no banco o vínculo vira nulo)
     db.produtos.forEach(function(p){p.componentes.forEach(function(c){if(c.tipo==='receita'&&c.refId===id)c.refId=null;});});
     hideLoading();renderReceitas();renderProdutos();renderOperacao();toast('Receita removida.');
-  }catch(e){hideLoading();console.error(e);toast('Erro ao remover.');}
+  }catch(e){hideLoading();console.error(e);toast('Erro ao remover: '+msgErro(e));}
 }
 
 // ===== RECEITAS: modal / editor de ingredientes =====
@@ -907,7 +917,7 @@ async function salvarReceita(){
     aplicarReceitaLocal({id:id,nome:receitaRow.nome,categoria:receitaRow.categoria,modo:modo,pesoBase:pesoBase,porcao:porcao,ingredientes:ingredientesLimpos});
     hideLoading();closeModal('modal-receita');renderReceitas();renderProdutos();renderOperacao();
     toast(editId?'Receita atualizada!':'Receita cadastrada!');
-  }catch(e){hideLoading();console.error(e);toast('Erro ao salvar receita.');}
+  }catch(e){hideLoading();console.error(e);toast('Erro ao salvar receita: '+msgErro(e));}
 }
 
 // ===== PRODUTOS =====
@@ -1213,7 +1223,7 @@ async function salvarProduto(){
     aplicarProdutoLocal({id:id,nome:nome,categoria:produtoRow.categoria,componentes:comps});
     hideLoading();closeModal('modal-produto');renderProdutos();renderOperacao();
     toast(editId?'Produto atualizado!':'Produto cadastrado!');
-  }catch(e){hideLoading();console.error(e);toast('Erro ao salvar produto.');}
+  }catch(e){hideLoading();console.error(e);toast('Erro ao salvar produto: '+msgErro(e));}
 }
 async function deleteProduto(id){
   var ok=await appConfirm('Excluir produto?','Os preparos e insumos usados por ele não são afetados.');
@@ -1224,7 +1234,7 @@ async function deleteProduto(id){
     db.produtos=db.produtos.filter(function(x){return x.id!==id;});
     if(opTipo==='produto'&&opId===id){opTipo=null;opId=null;}
     hideLoading();renderProdutos();renderOperacao();toast('Produto removido.');
-  }catch(e){hideLoading();console.error(e);toast('Erro ao remover.');}
+  }catch(e){hideLoading();console.error(e);toast('Erro ao remover: '+msgErro(e));}
 }
 
 // ===== GRAVAÇÃO DE RECEITA (usada ao salvar e ao duplicar) =====
@@ -1334,7 +1344,7 @@ async function salvarDuplicada(){
     renderReceitas();renderOperacao();
     toast('Receita duplicada!');
     openModalReceita(getReceita(novoId));
-  }catch(e){hideLoading();console.error(e);toast('Erro ao duplicar receita.');}
+  }catch(e){hideLoading();console.error(e);toast('Erro ao duplicar receita: '+msgErro(e));}
 }
 async function salvarProdutoDuplicado(){
   var origem=getProduto(dupOrigemId);
@@ -1354,7 +1364,7 @@ async function salvarProdutoDuplicado(){
     renderProdutos();renderOperacao();
     toast('Produto duplicado!');
     openModalProduto(getProduto(novoId));
-  }catch(e){hideLoading();console.error(e);toast('Erro ao duplicar produto.');}
+  }catch(e){hideLoading();console.error(e);toast('Erro ao duplicar produto: '+msgErro(e));}
 }
 
 // ===== OPERAÇÃO =====
