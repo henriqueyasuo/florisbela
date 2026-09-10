@@ -130,9 +130,21 @@ svg.icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;strok
 .summary-row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--accent-dark)}
 .summary-row:first-child{font-weight:400;color:var(--text2)}
 .summary-row span:last-child{font-weight:700;font-variant-numeric:tabular-nums}
-.comp-row{display:grid;grid-template-columns:1fr 78px auto;gap:6px;align-items:center;margin-bottom:8px}
+.comp-row{display:grid;grid-template-columns:1fr 92px auto;gap:6px;align-items:center;margin-bottom:8px}
 .comp-row:last-of-type{margin-bottom:0}
-.comp-row select.form-input{padding:8px 10px;font-size:13px}
+.comp-pick{position:relative;min-width:0}
+.comp-busca{width:100%;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--bg);color:var(--text);-webkit-appearance:none;text-overflow:ellipsis}
+.comp-busca:focus{outline:none;border-color:var(--accent)}
+.comp-busca.vazio{border-color:var(--danger)}
+.comp-opts{position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:30;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);box-shadow:0 6px 18px rgba(0,0,0,0.16);max-height:210px;overflow-y:auto}
+.comp-opt{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;padding:9px 11px;border:none;border-bottom:0.5px solid var(--border);background:transparent;color:var(--text);font-family:inherit;font-size:13px;cursor:pointer}
+.comp-opt:last-child{border-bottom:none}
+.comp-opt:active,.comp-opt.marcado{background:var(--bg2)}
+.comp-opt-nome{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comp-opt-tag{font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;flex-shrink:0}
+.comp-opt-tag.preparo{background:var(--accent-light);color:var(--accent-dark)}
+.comp-opt-tag.insumo{background:var(--bg2);color:var(--text2)}
+.comp-opt-vazio{padding:10px 11px;font-size:12px;color:var(--text3)}
 .comp-qty-wrap{position:relative}
 .comp-qty{width:100%;padding:8px 30px 8px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--bg);color:var(--text);text-align:right;font-variant-numeric:tabular-nums}
 .comp-qty:focus{outline:none;border-color:var(--accent)}
@@ -227,7 +239,7 @@ svg.icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;strok
     <span class="section-title">Produtos<span class="section-count" id="produtos-count"></span></span>
     <button class="btn btn-secondary" style="padding:7px 11px;font-size:12px" onclick="abrirModalDuplicar('produto')"><svg class="icon" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Duplicar</button>
   </div>
-  <div class="op-intro">O produto é o que você assa e vende. Ele monta uma unidade a partir dos preparos e insumos, em gramas por unidade — a massa fica na receita, e todos os sabores apontam para ela.</div>
+  <div class="op-intro">O produto é o que você assa e vende. Ele monta uma unidade a partir dos preparos e insumos: o preparo entra em porções da receita, o insumo em gramas — a massa fica na receita, e todos os sabores apontam para ela.</div>
   <div class="search-wrap">
     <span class="search-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
     <input class="search-input" placeholder="Buscar por nome ou categoria..." oninput="filterProdutos(this.value)">
@@ -524,8 +536,8 @@ async function loadDB(){
     var compPorProduto={};
     componentesRaw.forEach(function(c){
       var row=c.receita_id
-        ?{tipo:'receita',refId:c.receita_id,quantidade:+c.quantidade||0}
-        :{tipo:'insumo',refId:c.insumo_id,quantidade:+c.quantidade||0};
+        ?{tipo:'receita',refId:c.receita_id,quantidade:+c.quantidade||0,unidade:c.unidade==='porcao'?'porcao':'g'}
+        :{tipo:'insumo',refId:c.insumo_id,quantidade:+c.quantidade||0,unidade:'g'};
       (compPorProduto[c.produto_id]=compPorProduto[c.produto_id]||[]).push(row);
     });
     db.produtos=produtosRaw.map(function(p){return {id:p.id,nome:p.nome,categoria:p.categoria||'',componentes:compPorProduto[p.id]||[]};});
@@ -914,13 +926,40 @@ function custoPorGramaReceita(r){
   if(!(t.totalGramas>0)||!t.algumCusto)return null;
   return {valor:t.totalCusto/t.totalGramas,completo:t.completoCusto};
 }
-function custoComponente(c){
+// Preparo é medido em PORÇÕES da receita ('porcao'); insumo, em gramas.
+// A unidade fica gravada na linha: um preparo escolhido quando a receita ainda
+// não tinha porção continua em gramas, e não muda de significado depois.
+function unidadeComponente(c){
+  return (c.tipo==='receita'&&c.unidade==='porcao')?'porcao':'g';
+}
+function gramasComponente(c){
   var q=parseFloat(c.quantidade)||0;
+  if(unidadeComponente(c)==='porcao'){
+    var r=getReceita(c.refId);
+    return (r&&r.porcao>0)?q*r.porcao:0;
+  }
+  return q;
+}
+function componenteInvalido(c){
+  if(!c.refId)return true;
+  if(c.tipo!=='receita')return !getInsumo(c.refId);
+  var r=getReceita(c.refId);
+  if(!r)return true;
+  return c.unidade==='porcao'&&!(r.porcao>0);
+}
+function rotuloQtdComponente(c){
+  var q=parseFloat(c.quantidade)||0;
+  if(unidadeComponente(c)==='porcao')return fmtNum(q)+(q===1?' porção':' porções');
+  return fmtNum(q)+' g';
+}
+function custoComponente(c){
+  if(componenteInvalido(c))return null;
+  var g=gramasComponente(c);
   if(c.tipo==='receita'){
     var cpg=custoPorGramaReceita(getReceita(c.refId));
-    return cpg?{valor:q*cpg.valor,completo:cpg.completo}:null;
+    return cpg?{valor:g*cpg.valor,completo:cpg.completo}:null;
   }
-  var custo=custoDeGramas(getInsumo(c.refId),q);
+  var custo=custoDeGramas(getInsumo(c.refId),g);
   return custo==null?null:{valor:custo,completo:true};
 }
 function nomeComponente(c){
@@ -930,7 +969,7 @@ function nomeComponente(c){
 function calcProduto(p){
   var pesoUn=0,custoUn=0,algum=false,completo=(p.componentes||[]).length>0;
   (p.componentes||[]).forEach(function(c){
-    pesoUn+=parseFloat(c.quantidade)||0;
+    pesoUn+=gramasComponente(c);
     var custo=custoComponente(c);
     if(custo){custoUn+=custo.valor;algum=true;if(!custo.completo)completo=false;}
     else completo=false;
@@ -958,7 +997,7 @@ function renderProdutos(){
   list.forEach(function(p){
     var c=calcProduto(p);
     var chips=(p.componentes||[]).map(function(comp){
-      return '<span class="ing-chip'+(comp.tipo==='receita'?' base':'')+'">'+esc(nomeComponente(comp))+' · '+fmtNum(comp.quantidade)+'g</span>';
+      return '<span class="ing-chip'+(comp.tipo==='receita'?' base':'')+'">'+esc(nomeComponente(comp))+' · '+rotuloQtdComponente(comp)+'</span>';
     }).join('');
     var div=document.createElement('div');
     div.className='card';
@@ -988,25 +1027,62 @@ function openModalProduto(data){
 }
 function addComponenteRow(){
   if(!db.receitas.length&&!db.insumos.length){toast('Cadastre um preparo ou insumo antes.');return;}
-  var padrao=db.receitas.length?{tipo:'receita',refId:db.receitas[0].id,quantidade:''}:{tipo:'insumo',refId:db.insumos[0].id,quantidade:''};
-  pdComponentesEdit.push(padrao);
+  pdComponentesEdit.push({tipo:'receita',refId:null,quantidade:'',unidade:'porcao'});
   renderComponentesEditor();
+  var inp=document.querySelector('[data-cbusca="'+(pdComponentesEdit.length-1)+'"]');
+  if(inp)inp.focus();
 }
-function opcoesComponente(sel){
-  var preparos=db.receitas.slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
-  var insumos=db.insumos.slice().sort(function(a,b){return a.item.localeCompare(b.item,'pt-BR');});
-  var html='';
-  if(preparos.length){
-    html+='<optgroup label="Preparos (receitas)">'+preparos.map(function(r){
-      var v='r:'+r.id;return '<option value="'+v+'"'+(sel===v?' selected':'')+'>'+esc(r.nome)+'</option>';
-    }).join('')+'</optgroup>';
+// Busca por texto: preparos primeiro, depois insumos (também casa pela marca)
+function opcoesFiltradas(termo){
+  var t=String(termo||'').trim().toLowerCase();
+  var res=[];
+  db.receitas.slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');}).forEach(function(r){
+    if(t&&!r.nome.toLowerCase().includes(t))return;
+    res.push({tipo:'receita',id:r.id,nome:r.nome,extra:r.porcao>0?('porção de '+fmtNum(r.porcao)+' g'):'sem porção definida'});
+  });
+  db.insumos.slice().sort(function(a,b){return a.item.localeCompare(b.item,'pt-BR');}).forEach(function(i){
+    if(t&&!i.item.toLowerCase().includes(t)&&!(i.marca||'').toLowerCase().includes(t))return;
+    res.push({tipo:'insumo',id:i.id,nome:i.item,extra:i.marca||''});
+  });
+  return res;
+}
+function abrirOpts(idx,termo){
+  var box=document.querySelector('[data-copts="'+idx+'"]');
+  if(!box)return;
+  var opts=opcoesFiltradas(termo);
+  box.innerHTML=opts.length
+    ?opts.map(function(o){
+      var rot=o.tipo==='receita'?'preparo':'insumo';
+      return '<button type="button" class="comp-opt" data-otipo="'+o.tipo+'" data-oid="'+o.id+'">'+
+        '<span class="comp-opt-nome">'+esc(o.nome)+(o.extra?' <span style="color:var(--text3);font-size:11px">· '+esc(o.extra)+'</span>':'')+'</span>'+
+        '<span class="comp-opt-tag '+rot+'">'+rot+'</span></button>';
+    }).join('')
+    :'<div class="comp-opt-vazio">Nada encontrado para "'+esc(termo)+'".</div>';
+  box.style.display='block';
+}
+function fecharOpts(idx){
+  if(idx==null){document.querySelectorAll('.comp-opts').forEach(function(b){b.style.display='none';});return;}
+  var box=document.querySelector('[data-copts="'+idx+'"]');
+  if(box)box.style.display='none';
+}
+function selecionarComponente(idx,tipo,id){
+  var c=pdComponentesEdit[idx];
+  if(!c)return;
+  var mudouTipo=c.tipo!==tipo;
+  c.tipo=tipo;c.refId=id;
+  if(tipo==='receita'){
+    var r=getReceita(id);
+    c.unidade=(r&&r.porcao>0)?'porcao':'g';
+    // preparo entra como 1 porção por padrão
+    if(c.unidade==='porcao'&&(mudouTipo||!(parseFloat(c.quantidade)>0)))c.quantidade='1';
+    else if(mudouTipo)c.quantidade='';
+  }else{
+    c.unidade='g';
+    if(mudouTipo)c.quantidade='';
   }
-  if(insumos.length){
-    html+='<optgroup label="Insumos">'+insumos.map(function(i){
-      var v='i:'+i.id;return '<option value="'+v+'"'+(sel===v?' selected':'')+'>'+esc(i.item)+'</option>';
-    }).join('')+'</optgroup>';
-  }
-  return html;
+  renderComponentesEditor();
+  var q=document.querySelector('.comp-row[data-cidx="'+idx+'"] .comp-qty');
+  if(q){q.focus();q.select();}
 }
 function renderComponentesEditor(){
   var el=document.getElementById('pd-comp-list');
@@ -1014,10 +1090,14 @@ function renderComponentesEditor(){
     el.innerHTML='<div style="font-size:12px;color:var(--text2);padding:6px 2px 10px">Nenhum componente ainda. Comece pela massa e depois some as coberturas.</div>';
   }else{
     el.innerHTML=pdComponentesEdit.map(function(c,i){
-      var sel=(c.tipo==='receita'?'r:':'i:')+c.refId;
+      var nome=c.refId?nomeComponente(c):'';
+      var suf=unidadeComponente(c)==='porcao'?'porç':'g';
       return '<div class="comp-row" data-cidx="'+i+'">'+
-        '<select class="form-input comp-select">'+opcoesComponente(sel)+'</select>'+
-        '<div class="comp-qty-wrap"><input class="comp-qty" type="number" step="0.1" min="0" value="'+esc(c.quantidade)+'" placeholder="0"><span class="comp-qty-suffix">g/un</span></div>'+
+        '<div class="comp-pick">'+
+          '<input class="comp-busca'+(c.refId?'':' vazio')+'" data-cbusca="'+i+'" placeholder="Buscar preparo ou insumo..." value="'+esc(nome)+'" autocomplete="off" spellcheck="false">'+
+          '<div class="comp-opts" data-copts="'+i+'" style="display:none"></div>'+
+        '</div>'+
+        '<div class="comp-qty-wrap"><input class="comp-qty" type="number" step="0.01" min="0" value="'+esc(c.quantidade)+'" placeholder="0"><span class="comp-qty-suffix">'+suf+'</span></div>'+
         '<button type="button" class="remove-ing-btn comp-remove" title="Remover"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'+
         '<div class="comp-hint" data-chint="'+i+'"></div>'+
       '</div>';
@@ -1028,13 +1108,35 @@ function renderComponentesEditor(){
 document.getElementById('pd-comp-list').addEventListener('input',function(e){
   var row=e.target.closest('[data-cidx]');if(!row)return;
   var idx=+row.dataset.cidx;
-  if(e.target.classList.contains('comp-select')){
-    var v=e.target.value;
-    pdComponentesEdit[idx].tipo=v.slice(0,1)==='r'?'receita':'insumo';
-    pdComponentesEdit[idx].refId=v.slice(2);
+  if(e.target.classList.contains('comp-busca')){abrirOpts(idx,e.target.value);return;}
+  if(e.target.classList.contains('comp-qty')){
+    pdComponentesEdit[idx].quantidade=e.target.value;
+    updateProdutoSummary();
   }
-  if(e.target.classList.contains('comp-qty'))pdComponentesEdit[idx].quantidade=e.target.value;
-  updateProdutoSummary();
+});
+document.getElementById('pd-comp-list').addEventListener('focusin',function(e){
+  if(!e.target.classList.contains('comp-busca'))return;
+  var idx=+e.target.closest('[data-cidx]').dataset.cidx;
+  e.target.select();
+  abrirOpts(idx,'');
+});
+document.getElementById('pd-comp-list').addEventListener('focusout',function(e){
+  if(!e.target.classList.contains('comp-busca'))return;
+  var idx=+e.target.closest('[data-cidx]').dataset.cidx;
+  setTimeout(function(){
+    fecharOpts(idx);
+    var c=pdComponentesEdit[idx];
+    var inp=document.querySelector('[data-cbusca="'+idx+'"]');
+    if(inp&&c)inp.value=c.refId?nomeComponente(c):'';
+  },150);
+});
+// pointerdown roda antes do blur do campo, então a escolha não se perde
+document.getElementById('pd-comp-list').addEventListener('pointerdown',function(e){
+  var opt=e.target.closest('.comp-opt');
+  if(!opt)return;
+  e.preventDefault();
+  var idx=+opt.closest('[data-cidx]').dataset.cidx;
+  selecionarComponente(idx,opt.dataset.otipo,opt.dataset.oid);
 });
 document.getElementById('pd-comp-list').addEventListener('click',function(e){
   var btn=e.target.closest('.comp-remove');
@@ -1061,8 +1163,18 @@ function updateProdutoSummary(){
   pdComponentesEdit.forEach(function(comp,i){
     var h=document.querySelector('.comp-hint[data-chint="'+i+'"]');
     if(!h)return;
+    if(!comp.refId){h.textContent='Escolha um preparo ou insumo.';return;}
+    var partes=[];
+    if(comp.tipo==='receita'){
+      var r=getReceita(comp.refId);
+      if(comp.unidade==='porcao'){
+        if(r&&r.porcao>0)partes.push('preparo · '+fmtPeso(gramasComponente(comp))+' ('+fmtNum(r.porcao)+' g por porção)');
+        else partes.push('preparo sem porção — defina a porção na receita');
+      }else{
+        partes.push('preparo · em gramas'+(r&&r.porcao>0?' (a receita tem porção de '+fmtNum(r.porcao)+' g)':''));
+      }
+    }else partes.push('insumo');
     var custo=custoComponente(comp);
-    var partes=[comp.tipo==='receita'?'preparo':'insumo'];
     if(custo)partes.push(fmtBRL(custo.valor)+(custo.completo?'':'~'));
     else if(comp.tipo==='insumo'&&(getInsumo(comp.refId)||{}).unidadeMedida==='un')partes.push('custo não calculado (insumo em unidades)');
     h.textContent=partes.join(' · ');
@@ -1076,7 +1188,7 @@ async function persistirProduto(produtoRow,componentes){
       id:uid(),produto_id:produtoRow.id,
       insumo_id:c.tipo==='insumo'?c.refId:null,
       receita_id:c.tipo==='receita'?c.refId:null,
-      quantidade:c.quantidade,ordem:i
+      quantidade:c.quantidade,unidade:unidadeComponente(c),ordem:i
     };});
     await sbInsertMany('produto_componentes',rows);
   }
@@ -1091,7 +1203,7 @@ async function salvarProduto(){
   var editId=document.getElementById('pd-id').value;
   if(nomeProdutoExiste(nome,editId||null)){toast('Já existe outro produto com esse nome.');return;}
   var comps=pdComponentesEdit.filter(function(c){return c.refId&&parseFloat(c.quantidade)>0;})
-    .map(function(c){return {tipo:c.tipo,refId:c.refId,quantidade:parseFloat(c.quantidade)};});
+    .map(function(c){return {tipo:c.tipo,refId:c.refId,quantidade:parseFloat(c.quantidade),unidade:unidadeComponente(c)};});
   if(!comps.length){toast('Adicione ao menos um componente com quantidade.');return;}
   var id=editId||uid();
   var produtoRow={id:id,nome:nome,categoria:document.getElementById('pd-categoria').value.trim()};
@@ -1270,12 +1382,12 @@ function calcOperacaoAlvo(tipo,id,qtd){
   }else{
     var r=getReceita(id);
     if(!r)return null;
-    nome=r.nome;componentes=[{tipo:'receita',refId:r.id,quantidade:r.porcao||0}];
+    nome=r.nome;componentes=[{tipo:'receita',refId:r.id,quantidade:r.porcao||0,unidade:'g'}];
     sub='preparo · porção de '+fmtNum(r.porcao)+' g por unidade'+(r.categoria?' · '+r.categoria:'');
   }
   var grupos=[],montagem=[],pesoTotal=0;
   componentes.forEach(function(c){
-    var g=(parseFloat(c.quantidade)||0)*(qtd||0);
+    var g=gramasComponente(c)*(qtd||0);
     pesoTotal+=g;
     if(c.tipo==='receita'){
       var rec=getReceita(c.refId);
