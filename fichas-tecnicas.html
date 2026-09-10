@@ -130,6 +130,22 @@ svg.icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;strok
 .summary-row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--accent-dark)}
 .summary-row:first-child{font-weight:400;color:var(--text2)}
 .summary-row span:last-child{font-weight:700;font-variant-numeric:tabular-nums}
+.comp-row{display:grid;grid-template-columns:1fr 78px auto;gap:6px;align-items:center;margin-bottom:8px}
+.comp-row:last-of-type{margin-bottom:0}
+.comp-row select.form-input{padding:8px 10px;font-size:13px}
+.comp-qty-wrap{position:relative}
+.comp-qty{width:100%;padding:8px 30px 8px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:13px;font-family:inherit;background:var(--bg);color:var(--text);text-align:right;font-variant-numeric:tabular-nums}
+.comp-qty:focus{outline:none;border-color:var(--accent)}
+.comp-qty-suffix{position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--text3);pointer-events:none}
+.comp-hint{grid-column:1/-1;font-size:11px;color:var(--text2);margin-top:-4px;padding-left:2px;min-height:14px;font-variant-numeric:tabular-nums}
+.comp-tag{font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;margin-left:5px;white-space:nowrap}
+.comp-tag.preparo{background:var(--accent-light);color:var(--accent-dark)}
+.comp-tag.insumo{background:var(--bg2);color:var(--text2)}
+.op-grupo{margin-bottom:14px}
+.op-grupo-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 2px 7px}
+.op-grupo-head span{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-grupo-head b{font-size:15px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;flex-shrink:0}
+.op-grupo.montagem .op-grupo-head b{color:var(--text2)}
 .op-intro{font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5}
 .op-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:13px 14px;margin-bottom:9px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;width:100%;text-align:left;font-family:inherit;color:var(--text)}
 .op-card:disabled{cursor:default;opacity:0.5;box-shadow:none}
@@ -206,6 +222,19 @@ svg.icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;strok
   <div id="lista-receitas"></div>
 </div>
 
+<div class="page" id="page-produtos">
+  <div class="section-header">
+    <span class="section-title">Produtos<span class="section-count" id="produtos-count"></span></span>
+    <button class="btn btn-secondary" style="padding:7px 11px;font-size:12px" onclick="abrirModalDuplicar('produto')"><svg class="icon" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Duplicar</button>
+  </div>
+  <div class="op-intro">O produto é o que você assa e vende. Ele monta uma unidade a partir dos preparos e insumos, em gramas por unidade — a massa fica na receita, e todos os sabores apontam para ela.</div>
+  <div class="search-wrap">
+    <span class="search-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+    <input class="search-input" placeholder="Buscar por nome ou categoria..." oninput="filterProdutos(this.value)">
+  </div>
+  <div id="lista-produtos"></div>
+</div>
+
 <div class="page" id="page-operacao">
   <div id="op-lista-view">
     <div class="section-header">
@@ -215,7 +244,7 @@ svg.icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;strok
     <div id="op-lista"></div>
   </div>
   <div id="op-detalhe-view" style="display:none">
-    <button class="op-back" onclick="opVoltar()"><svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Todas as receitas</button>
+    <button class="op-back" onclick="opVoltar()"><svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Voltar para a lista</button>
     <div id="op-detalhe"></div>
   </div>
   <div class="wake-status" id="wake-status"></div>
@@ -228,6 +257,7 @@ svg.icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;strok
 <nav class="bottom-nav">
   <button class="nav-item active" onclick="showPage('insumos')" id="nav-insumos"><svg class="icon" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M21 8v8a1 1 0 0 1-.5.87l-8 4.5a1 1 0 0 1-1 0l-8-4.5A1 1 0 0 1 3 16V8a1 1 0 0 1 .5-.87l8-4.5a1 1 0 0 1 1 0l8 4.5A1 1 0 0 1 21 8Z"/><path d="M3.27 6.96 12 12l8.73-5.04"/><line x1="12" y1="22" x2="12" y2="12"/></svg>Insumos</button>
   <button class="nav-item" onclick="showPage('receitas')" id="nav-receitas"><svg class="icon" viewBox="0 0 24 24" style="width:22px;height:22px"><rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1Z"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="19" x2="12.5" y2="19"/></svg>Receitas</button>
+  <button class="nav-item" onclick="showPage('produtos')" id="nav-produtos"><svg class="icon" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M20.6 13.4 12 22l-9-9V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.6" cy="7.6" r="1.4"/></svg>Produtos</button>
   <button class="nav-item" onclick="showPage('operacao')" id="nav-operacao"><svg class="icon" viewBox="0 0 24 24" style="width:22px;height:22px"><circle cx="12" cy="12" r="9"/><polygon points="10.5 8.5 16 12 10.5 15.5" fill="currentColor" stroke-linejoin="round"/></svg>Operação</button>
 </nav>
 
@@ -268,21 +298,44 @@ svg.icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;strok
   </div>
 </div></div>
 
-<!-- MODAL DUPLICAR RECEITA -->
+<!-- MODAL PRODUTO -->
+<div id="modal-produto" class="modal-overlay" onclick="onOverlayClick(event,'modal-produto')">
+<div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title" id="modal-produto-title">Novo produto</div>
+  <input type="hidden" id="pd-id">
+  <div class="form-group"><label class="form-label">Nome do produto *</label><input class="form-input" id="pd-nome" placeholder="Ex: Pizza margherita"></div>
+  <div class="form-group"><label class="form-label">Categoria</label><input class="form-input" id="pd-categoria" placeholder="Ex: Pizza, Pão..."></div>
+  <div class="form-group">
+    <label class="form-label" style="margin-bottom:8px">Componentes de 1 unidade</label>
+    <div class="ing-editor">
+      <div id="pd-comp-list"></div>
+      <div class="base-status" id="pd-comp-status"></div>
+      <button type="button" class="add-ing-btn" onclick="addComponenteRow()"><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Adicionar componente</button>
+    </div>
+  </div>
+  <div class="summary-card" id="pd-summary"></div>
+  <div style="display:flex;gap:8px;margin-top:16px">
+    <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-produto')">Cancelar</button>
+    <button class="btn btn-primary" style="flex:2" onclick="salvarProduto()"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Salvar</button>
+  </div>
+</div></div>
+
+<!-- MODAL DUPLICAR -->
 <div id="modal-duplicar" class="modal-overlay" onclick="onOverlayClick(event,'modal-duplicar')">
 <div class="modal">
   <div class="modal-handle"></div>
-  <div class="modal-title">Duplicar receita</div>
+  <div class="modal-title" id="dup-titulo">Duplicar receita</div>
   <div id="dup-passo-lista">
-    <label class="form-label">Escolha a receita que será duplicada</label>
+    <label class="form-label" id="dup-label-lista">Escolha a receita que será duplicada</label>
     <div class="dup-lista" id="dup-lista"></div>
     <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:14px" onclick="closeModal('modal-duplicar')">Cancelar</button>
   </div>
   <div id="dup-passo-nome" style="display:none">
     <div class="dup-origem" id="dup-origem"></div>
     <div class="form-group">
-      <label class="form-label">Nome da nova receita *</label>
-      <input class="form-input" id="dup-nome" placeholder="Ex: Massa de pizza integral">
+      <label class="form-label" id="dup-label-nome">Nome da nova receita *</label>
+      <input class="form-input" id="dup-nome" placeholder="Ex: Pizza calabresa">
       <div class="form-hint muted" id="dup-nome-aviso"></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:16px">
@@ -369,13 +422,16 @@ function sbDelete(table,id){return sbFetch(table+'?id=eq.'+encodeURIComponent(id
 function sbDeleteWhere(table,field,value){return sbFetch(table+'?'+field+'=eq.'+encodeURIComponent(value),'DELETE');}
 
 // ===== STATE =====
-var db={insumos:[],receitas:[]};
+var db={insumos:[],receitas:[],produtos:[]};
 var currentPage='insumos';
 var insumoQuery='';
 var receitaQuery='';
+var produtoQuery='';
 var confirmCb=null;
 var rcIngredientesEdit=[];
-var opReceitaId=null;
+var pdComponentesEdit=[];
+var opTipo=null;
+var opId=null;
 var opQtd=1;
 var opChecked={};
 
@@ -433,11 +489,17 @@ function showPage(p){
   document.getElementById('nav-'+p).classList.add('active');
   currentPage=p;
   document.getElementById('fab-btn').style.display=(p==='operacao')?'none':'flex';
-  if(p==='operacao')renderOperacao();
+  // sempre redesenha a aba aberta: custos de produto dependem das receitas,
+  // então a tela precisa refletir o estado atual, não o de quando foi montada
+  if(p==='insumos')renderInsumos();
+  else if(p==='receitas')renderReceitas();
+  else if(p==='produtos')renderProdutos();
+  else if(p==='operacao')renderOperacao();
 }
 function onFabClick(){
   if(currentPage==='insumos')openModalInsumo(null);
   else if(currentPage==='receitas')openModalReceita(null);
+  else if(currentPage==='produtos')openModalProduto(null);
 }
 
 // ===== LOAD DB =====
@@ -447,9 +509,11 @@ async function loadDB(){
     var results=await Promise.all([
       sbGet('insumos','item.asc'),
       sbGet('receitas','nome.asc'),
-      sbGet('receita_ingredientes','criado_em.asc')
+      sbGet('receita_ingredientes','criado_em.asc'),
+      sbGet('produtos','nome.asc'),
+      sbGet('produto_componentes','ordem.asc')
     ]);
-    var insumosRaw=results[0],receitasRaw=results[1],ingredientesRaw=results[2];
+    var insumosRaw=results[0],receitasRaw=results[1],ingredientesRaw=results[2],produtosRaw=results[3],componentesRaw=results[4];
     db.insumos=insumosRaw.map(function(r){return {id:r.id,item:r.item,marca:r.marca||'',tamanho:+r.tamanho||0,unidadeMedida:r.unidade_medida||'g',valor:+r.valor||0};});
     var ingPorReceita={};
     ingredientesRaw.forEach(function(r){
@@ -457,9 +521,17 @@ async function loadDB(){
       (ingPorReceita[r.receita_id]=ingPorReceita[r.receita_id]||[]).push(row);
     });
     db.receitas=receitasRaw.map(function(r){return {id:r.id,nome:r.nome,categoria:r.categoria||'',modo:r.modo,pesoBase:+r.peso_base||0,porcao:+r.porcao||0,ingredientes:ingPorReceita[r.id]||[]};});
+    var compPorProduto={};
+    componentesRaw.forEach(function(c){
+      var row=c.receita_id
+        ?{tipo:'receita',refId:c.receita_id,quantidade:+c.quantidade||0}
+        :{tipo:'insumo',refId:c.insumo_id,quantidade:+c.quantidade||0};
+      (compPorProduto[c.produto_id]=compPorProduto[c.produto_id]||[]).push(row);
+    });
+    db.produtos=produtosRaw.map(function(p){return {id:p.id,nome:p.nome,categoria:p.categoria||'',componentes:compPorProduto[p.id]||[]};});
     hideLoading();
     document.getElementById('db-retry').classList.remove('show');
-    renderInsumos();renderReceitas();renderOperacao();
+    renderInsumos();renderReceitas();renderProdutos();renderOperacao();
   }catch(e){
     hideLoading();
     console.error('loadDB error:',e);
@@ -527,7 +599,8 @@ async function deleteInsumo(id){
     await sbDelete('insumos',id);
     db.insumos=db.insumos.filter(function(x){return x.id!==id;});
     db.receitas.forEach(function(r){r.ingredientes.forEach(function(ing){if(ing.insumoId===id)ing.insumoId=null;});});
-    hideLoading();renderInsumos();renderReceitas();toast('Insumo removido.');
+    db.produtos.forEach(function(p){p.componentes.forEach(function(c){if(c.tipo==='insumo'&&c.refId===id)c.refId=null;});});
+    hideLoading();renderInsumos();renderReceitas();renderProdutos();renderOperacao();toast('Insumo removido.');
   }catch(e){hideLoading();console.error(e);toast('Erro ao remover.');}
 }
 
@@ -632,8 +705,10 @@ async function deleteReceita(id){
     showLoading('Removendo...');
     await sbDelete('receitas',id);
     db.receitas=db.receitas.filter(function(x){return x.id!==id;});
-    if(opReceitaId===id)opReceitaId=null;
-    hideLoading();renderReceitas();renderOperacao();toast('Receita removida.');
+    if(opTipo==='receita'&&opId===id){opTipo=null;opId=null;}
+    // o preparo sai dos produtos que o usavam (no banco o vínculo vira nulo)
+    db.produtos.forEach(function(p){p.componentes.forEach(function(c){if(c.tipo==='receita'&&c.refId===id)c.refId=null;});});
+    hideLoading();renderReceitas();renderProdutos();renderOperacao();toast('Receita removida.');
   }catch(e){hideLoading();console.error(e);toast('Erro ao remover.');}
 }
 
@@ -818,9 +893,226 @@ async function salvarReceita(){
     showLoading('Salvando...');
     await persistirReceita(receitaRow,ingredientesLimpos);
     aplicarReceitaLocal({id:id,nome:receitaRow.nome,categoria:receitaRow.categoria,modo:modo,pesoBase:pesoBase,porcao:porcao,ingredientes:ingredientesLimpos});
-    hideLoading();closeModal('modal-receita');renderReceitas();renderOperacao();
+    hideLoading();closeModal('modal-receita');renderReceitas();renderProdutos();renderOperacao();
     toast(editId?'Receita atualizada!':'Receita cadastrada!');
   }catch(e){hideLoading();console.error(e);toast('Erro ao salvar receita.');}
+}
+
+// ===== PRODUTOS =====
+// O produto monta 1 unidade a partir de preparos (receitas) e insumos, em gramas por unidade.
+function getProduto(id){return db.produtos.find(function(x){return x.id===id;});}
+function custoDeGramas(insumo,gramas){
+  if(insumo&&insumo.unidadeMedida==='g'&&insumo.tamanho>0&&gramas!=null)return gramas*(insumo.valor/insumo.tamanho);
+  return null;
+}
+// Custo por grama de um preparo. Não depende da escala, então funciona mesmo
+// sem o peso base preenchido (usa uma base virtual só para a proporção).
+function custoPorGramaReceita(r){
+  if(!r||!r.ingredientes||!r.ingredientes.length)return null;
+  var pesoBase=r.modo==='percentual'?(r.pesoBase>0?r.pesoBase:1000):0;
+  var t=calcTotais(r.modo,pesoBase,r.ingredientes);
+  if(!(t.totalGramas>0)||!t.algumCusto)return null;
+  return {valor:t.totalCusto/t.totalGramas,completo:t.completoCusto};
+}
+function custoComponente(c){
+  var q=parseFloat(c.quantidade)||0;
+  if(c.tipo==='receita'){
+    var cpg=custoPorGramaReceita(getReceita(c.refId));
+    return cpg?{valor:q*cpg.valor,completo:cpg.completo}:null;
+  }
+  var custo=custoDeGramas(getInsumo(c.refId),q);
+  return custo==null?null:{valor:custo,completo:true};
+}
+function nomeComponente(c){
+  if(c.tipo==='receita'){var r=getReceita(c.refId);return r?r.nome:'preparo removido';}
+  var i=getInsumo(c.refId);return i?i.item:'insumo removido';
+}
+function calcProduto(p){
+  var pesoUn=0,custoUn=0,algum=false,completo=(p.componentes||[]).length>0;
+  (p.componentes||[]).forEach(function(c){
+    pesoUn+=parseFloat(c.quantidade)||0;
+    var custo=custoComponente(c);
+    if(custo){custoUn+=custo.valor;algum=true;if(!custo.completo)completo=false;}
+    else completo=false;
+  });
+  return {pesoUn:pesoUn,custoUn:custoUn,algum:algum,completo:completo};
+}
+function nomeProdutoExiste(nome,ignorarId){
+  var alvo=String(nome||'').trim().toLowerCase();
+  return db.produtos.some(function(p){return p.id!==ignorarId&&p.nome.trim().toLowerCase()===alvo;});
+}
+function filterProdutos(q){produtoQuery=q;renderProdutos();}
+function renderProdutos(){
+  var list=db.produtos.slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
+  if(produtoQuery){
+    var q=produtoQuery.toLowerCase();
+    list=list.filter(function(p){return p.nome.toLowerCase().includes(q)||(p.categoria||'').toLowerCase().includes(q);});
+  }
+  document.getElementById('produtos-count').textContent=db.produtos.length?' ('+db.produtos.length+')':'';
+  var el=document.getElementById('lista-produtos');
+  if(!list.length){
+    el.innerHTML='<div class="empty-state"><svg class="icon" viewBox="0 0 24 24"><path d="M20.6 13.4 12 22l-9-9V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.6" cy="7.6" r="1.4"/></svg><p>'+(db.produtos.length?'Nenhum produto encontrado.':'Nenhum produto cadastrado.<br>Toque + para montar o primeiro.')+'</p></div>';
+    return;
+  }
+  el.innerHTML='';
+  list.forEach(function(p){
+    var c=calcProduto(p);
+    var chips=(p.componentes||[]).map(function(comp){
+      return '<span class="ing-chip'+(comp.tipo==='receita'?' base':'')+'">'+esc(nomeComponente(comp))+' · '+fmtNum(comp.quantidade)+'g</span>';
+    }).join('');
+    var div=document.createElement('div');
+    div.className='card';
+    div.innerHTML='<div class="card-row"><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">'+
+      '<span class="card-name">'+esc(p.nome)+'</span>'+(p.categoria?'<span class="tag">'+esc(p.categoria)+'</span>':'')+'</div>'+
+      '<div class="card-sub">'+p.componentes.length+' componente'+(p.componentes.length===1?'':'s')+' por unidade</div></div>'+
+      '<div class="card-actions" style="flex-shrink:0"><button class="btn-icon" aria-label="Editar"><svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="btn-icon" aria-label="Excluir"><svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button></div></div>'+
+      '<div class="ing-chips">'+chips+'</div>'+
+      '<div class="recipe-totals"><div class="recipe-total-item">Peso por unidade<b>'+fmtPeso(c.pesoUn)+'</b></div>'+
+      '<div class="recipe-total-item">Custo por unidade<b>'+(c.algum?fmtBRL(c.custoUn)+(c.completo?'':'~'):'—')+'</b></div></div>';
+    var btns=div.querySelectorAll('.card-actions .btn-icon');
+    btns[0].addEventListener('click',(function(id){return function(){editarProduto(id);};})(p.id));
+    btns[1].addEventListener('click',(function(id){return function(){deleteProduto(id);};})(p.id));
+    el.appendChild(div);
+  });
+}
+function editarProduto(id){var p=getProduto(id);if(p)openModalProduto(p);}
+function openModalProduto(data){
+  document.getElementById('modal-produto-title').textContent=data?'Editar produto':'Novo produto';
+  document.getElementById('pd-id').value=data?data.id:'';
+  document.getElementById('pd-nome').value=data?data.nome:'';
+  document.getElementById('pd-categoria').value=data?(data.categoria||''):'';
+  pdComponentesEdit=data?JSON.parse(JSON.stringify(data.componentes||[])):[];
+  renderComponentesEditor();
+  document.getElementById('modal-produto').classList.add('open');
+  setTimeout(function(){document.getElementById('pd-nome').focus();},100);
+}
+function addComponenteRow(){
+  if(!db.receitas.length&&!db.insumos.length){toast('Cadastre um preparo ou insumo antes.');return;}
+  var padrao=db.receitas.length?{tipo:'receita',refId:db.receitas[0].id,quantidade:''}:{tipo:'insumo',refId:db.insumos[0].id,quantidade:''};
+  pdComponentesEdit.push(padrao);
+  renderComponentesEditor();
+}
+function opcoesComponente(sel){
+  var preparos=db.receitas.slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
+  var insumos=db.insumos.slice().sort(function(a,b){return a.item.localeCompare(b.item,'pt-BR');});
+  var html='';
+  if(preparos.length){
+    html+='<optgroup label="Preparos (receitas)">'+preparos.map(function(r){
+      var v='r:'+r.id;return '<option value="'+v+'"'+(sel===v?' selected':'')+'>'+esc(r.nome)+'</option>';
+    }).join('')+'</optgroup>';
+  }
+  if(insumos.length){
+    html+='<optgroup label="Insumos">'+insumos.map(function(i){
+      var v='i:'+i.id;return '<option value="'+v+'"'+(sel===v?' selected':'')+'>'+esc(i.item)+'</option>';
+    }).join('')+'</optgroup>';
+  }
+  return html;
+}
+function renderComponentesEditor(){
+  var el=document.getElementById('pd-comp-list');
+  if(!pdComponentesEdit.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--text2);padding:6px 2px 10px">Nenhum componente ainda. Comece pela massa e depois some as coberturas.</div>';
+  }else{
+    el.innerHTML=pdComponentesEdit.map(function(c,i){
+      var sel=(c.tipo==='receita'?'r:':'i:')+c.refId;
+      return '<div class="comp-row" data-cidx="'+i+'">'+
+        '<select class="form-input comp-select">'+opcoesComponente(sel)+'</select>'+
+        '<div class="comp-qty-wrap"><input class="comp-qty" type="number" step="0.1" min="0" value="'+esc(c.quantidade)+'" placeholder="0"><span class="comp-qty-suffix">g/un</span></div>'+
+        '<button type="button" class="remove-ing-btn comp-remove" title="Remover"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'+
+        '<div class="comp-hint" data-chint="'+i+'"></div>'+
+      '</div>';
+    }).join('');
+  }
+  updateProdutoSummary();
+}
+document.getElementById('pd-comp-list').addEventListener('input',function(e){
+  var row=e.target.closest('[data-cidx]');if(!row)return;
+  var idx=+row.dataset.cidx;
+  if(e.target.classList.contains('comp-select')){
+    var v=e.target.value;
+    pdComponentesEdit[idx].tipo=v.slice(0,1)==='r'?'receita':'insumo';
+    pdComponentesEdit[idx].refId=v.slice(2);
+  }
+  if(e.target.classList.contains('comp-qty'))pdComponentesEdit[idx].quantidade=e.target.value;
+  updateProdutoSummary();
+});
+document.getElementById('pd-comp-list').addEventListener('click',function(e){
+  var btn=e.target.closest('.comp-remove');
+  if(!btn)return;
+  var idx=+btn.closest('[data-cidx]').dataset.cidx;
+  pdComponentesEdit.splice(idx,1);
+  renderComponentesEditor();
+});
+function updateProdutoSummary(){
+  var status=document.getElementById('pd-comp-status');
+  var nPreparos=pdComponentesEdit.filter(function(c){return c.tipo==='receita';}).length;
+  if(!pdComponentesEdit.length){status.className='base-status';status.textContent='';}
+  else if(!nPreparos){status.className='base-status warn';status.textContent='Nenhum preparo no produto — normalmente a massa entra como preparo.';}
+  else{status.className='base-status ok';status.textContent=nPreparos+(nPreparos===1?' preparo':' preparos')+' + '+(pdComponentesEdit.length-nPreparos)+' insumo(s) direto(s).';}
+  var el=document.getElementById('pd-summary');
+  if(!pdComponentesEdit.length){
+    el.innerHTML='<div style="font-size:12px;color:var(--accent-dark)">Adicione componentes para ver o resumo.</div>';
+    return;
+  }
+  var c=calcProduto({componentes:pdComponentesEdit});
+  el.innerHTML='<div class="summary-row"><span>Por unidade</span><span></span></div>'+
+    '<div class="summary-row"><span>Peso</span><span>'+fmtPeso(c.pesoUn)+'</span></div>'+
+    '<div class="summary-row"><span>Custo</span><span>'+(c.algum?fmtBRL(c.custoUn)+(c.completo?'':' (parcial)'):'—')+'</span></div>';
+  pdComponentesEdit.forEach(function(comp,i){
+    var h=document.querySelector('.comp-hint[data-chint="'+i+'"]');
+    if(!h)return;
+    var custo=custoComponente(comp);
+    var partes=[comp.tipo==='receita'?'preparo':'insumo'];
+    if(custo)partes.push(fmtBRL(custo.valor)+(custo.completo?'':'~'));
+    else if(comp.tipo==='insumo'&&(getInsumo(comp.refId)||{}).unidadeMedida==='un')partes.push('custo não calculado (insumo em unidades)');
+    h.textContent=partes.join(' · ');
+  });
+}
+async function persistirProduto(produtoRow,componentes){
+  await sbUpsert('produtos',produtoRow);
+  await sbDeleteWhere('produto_componentes','produto_id',produtoRow.id);
+  if(componentes.length){
+    var rows=componentes.map(function(c,i){return {
+      id:uid(),produto_id:produtoRow.id,
+      insumo_id:c.tipo==='insumo'?c.refId:null,
+      receita_id:c.tipo==='receita'?c.refId:null,
+      quantidade:c.quantidade,ordem:i
+    };});
+    await sbInsertMany('produto_componentes',rows);
+  }
+}
+function aplicarProdutoLocal(local){
+  var idx=db.produtos.findIndex(function(x){return x.id===local.id;});
+  if(idx>=0)db.produtos[idx]=local;else db.produtos.push(local);
+}
+async function salvarProduto(){
+  var nome=document.getElementById('pd-nome').value.trim();
+  if(!nome){toast('Informe o nome do produto.');return;}
+  var editId=document.getElementById('pd-id').value;
+  if(nomeProdutoExiste(nome,editId||null)){toast('Já existe outro produto com esse nome.');return;}
+  var comps=pdComponentesEdit.filter(function(c){return c.refId&&parseFloat(c.quantidade)>0;})
+    .map(function(c){return {tipo:c.tipo,refId:c.refId,quantidade:parseFloat(c.quantidade)};});
+  if(!comps.length){toast('Adicione ao menos um componente com quantidade.');return;}
+  var id=editId||uid();
+  var produtoRow={id:id,nome:nome,categoria:document.getElementById('pd-categoria').value.trim()};
+  try{
+    showLoading('Salvando...');
+    await persistirProduto(produtoRow,comps);
+    aplicarProdutoLocal({id:id,nome:nome,categoria:produtoRow.categoria,componentes:comps});
+    hideLoading();closeModal('modal-produto');renderProdutos();renderOperacao();
+    toast(editId?'Produto atualizado!':'Produto cadastrado!');
+  }catch(e){hideLoading();console.error(e);toast('Erro ao salvar produto.');}
+}
+async function deleteProduto(id){
+  var ok=await appConfirm('Excluir produto?','Os preparos e insumos usados por ele não são afetados.');
+  if(!ok)return;
+  try{
+    showLoading('Removendo...');
+    await sbDelete('produtos',id);
+    db.produtos=db.produtos.filter(function(x){return x.id!==id;});
+    if(opTipo==='produto'&&opId===id){opTipo=null;opId=null;}
+    hideLoading();renderProdutos();renderOperacao();toast('Produto removido.');
+  }catch(e){hideLoading();console.error(e);toast('Erro ao remover.');}
 }
 
 // ===== GRAVAÇÃO DE RECEITA (usada ao salvar e ao duplicar) =====
@@ -842,10 +1134,18 @@ function nomeReceitaExiste(nome,ignorarId){
   return db.receitas.some(function(r){return r.id!==ignorarId&&r.nome.trim().toLowerCase()===alvo;});
 }
 
-// ===== DUPLICAR RECEITA =====
+// ===== DUPLICAR (receita ou produto) =====
 var dupOrigemId=null;
-function abrirModalDuplicar(){
-  if(!db.receitas.length){toast('Cadastre uma receita antes de duplicar.');return;}
+var dupEscopo='receita';
+function dupEhProduto(){return dupEscopo==='produto';}
+function nomeDupExiste(nome){return dupEhProduto()?nomeProdutoExiste(nome,null):nomeReceitaExiste(nome,null);}
+function abrirModalDuplicar(escopo){
+  dupEscopo=escopo==='produto'?'produto':'receita';
+  var lista=dupEhProduto()?db.produtos:db.receitas;
+  if(!lista.length){toast(dupEhProduto()?'Cadastre um produto antes de duplicar.':'Cadastre uma receita antes de duplicar.');return;}
+  document.getElementById('dup-titulo').textContent=dupEhProduto()?'Duplicar produto':'Duplicar receita';
+  document.getElementById('dup-label-lista').textContent=dupEhProduto()?'Escolha o produto que será duplicado':'Escolha a receita que será duplicada';
+  document.getElementById('dup-label-nome').textContent=dupEhProduto()?'Nome do novo produto *':'Nome da nova receita *';
   dupOrigemId=null;
   renderDupLista();
   document.getElementById('dup-passo-lista').style.display='block';
@@ -855,25 +1155,34 @@ function abrirModalDuplicar(){
 function renderDupLista(){
   var el=document.getElementById('dup-lista');
   el.innerHTML='';
-  db.receitas.slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');}).forEach(function(r){
-    var n=r.ingredientes.length;
+  var lista=(dupEhProduto()?db.produtos:db.receitas).slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
+  lista.forEach(function(item){
+    var sub;
+    if(dupEhProduto()){
+      var n=item.componentes.length;
+      sub=n+' componente'+(n===1?'':'s')+' · '+fmtPeso(calcProduto(item).pesoUn)+' por unidade'+(item.categoria?' · '+item.categoria:'');
+    }else{
+      var ni=item.ingredientes.length;
+      sub=ni+' ingrediente'+(ni===1?'':'s')+' · '+(item.modo==='percentual'?'em %':'em gramas')+
+        (item.categoria?' · '+item.categoria:'')+(item.porcao>0?' · porção '+fmtNum(item.porcao)+' g':'');
+    }
     var btn=document.createElement('button');
     btn.type='button';
     btn.className='dup-item';
-    btn.innerHTML='<div class="dup-item-nome">'+esc(r.nome)+'</div>'+
-      '<div class="dup-item-sub">'+n+' ingrediente'+(n===1?'':'s')+' · '+(r.modo==='percentual'?'em %':'em gramas')+
-      (r.categoria?' · '+esc(r.categoria):'')+(r.porcao>0?' · porção '+fmtNum(r.porcao)+' g':'')+'</div>';
-    btn.addEventListener('click',(function(id){return function(){dupSelecionar(id);};})(r.id));
+    btn.innerHTML='<div class="dup-item-nome">'+esc(item.nome)+'</div><div class="dup-item-sub">'+esc(sub)+'</div>';
+    btn.addEventListener('click',(function(id){return function(){dupSelecionar(id);};})(item.id));
     el.appendChild(btn);
   });
 }
 function dupSelecionar(id){
-  var r=getReceita(id);
-  if(!r)return;
+  var origem=dupEhProduto()?getProduto(id):getReceita(id);
+  if(!origem)return;
   dupOrigemId=id;
-  document.getElementById('dup-origem').innerHTML='Copiando de <b>'+esc(r.nome)+'</b>: ingredientes, modo, peso base e porção vêm junto. Depois de duplicar, a nova ficha abre para você ajustar o que muda.';
+  document.getElementById('dup-origem').innerHTML=dupEhProduto()
+    ?'Copiando de <b>'+esc(origem.nome)+'</b>: os componentes e as quantidades por unidade vêm junto. Depois de duplicar, o novo produto abre para você trocar as coberturas.'
+    :'Copiando de <b>'+esc(origem.nome)+'</b>: ingredientes, modo, peso base e porção vêm junto. Depois de duplicar, a nova ficha abre para você ajustar o que muda.';
   var inp=document.getElementById('dup-nome');
-  inp.value=r.nome;
+  inp.value=origem.nome;
   document.getElementById('dup-passo-lista').style.display='none';
   document.getElementById('dup-passo-nome').style.display='block';
   validarNomeDup();
@@ -886,14 +1195,16 @@ function dupVoltar(){
 function validarNomeDup(){
   var el=document.getElementById('dup-nome-aviso');
   var nome=document.getElementById('dup-nome').value.trim();
-  if(!nome){el.className='form-hint muted';el.textContent='Dê um nome para a nova receita.';return false;}
-  if(nomeReceitaExiste(nome,null)){el.className='form-hint erro';el.textContent='Já existe uma receita com esse nome — troque para continuar.';return false;}
+  var oque=dupEhProduto()?'produto':'receita';
+  if(!nome){el.className='form-hint muted';el.textContent='Dê um nome para o novo '+oque+'.';return false;}
+  if(nomeDupExiste(nome)){el.className='form-hint erro';el.textContent='Já existe '+(dupEhProduto()?'um produto':'uma receita')+' com esse nome — troque para continuar.';return false;}
   el.className='form-hint ok';el.textContent='Nome disponível.';
   return true;
 }
 document.getElementById('dup-nome').addEventListener('input',validarNomeDup);
 document.getElementById('dup-nome').addEventListener('keydown',function(e){if(e.key==='Enter')salvarDuplicada();});
 async function salvarDuplicada(){
+  if(dupEhProduto())return salvarProdutoDuplicado();
   var origem=getReceita(dupOrigemId);
   if(!origem){toast('Escolha a receita que será duplicada.');dupVoltar();return;}
   var nome=document.getElementById('dup-nome').value.trim();
@@ -913,84 +1224,154 @@ async function salvarDuplicada(){
     openModalReceita(getReceita(novoId));
   }catch(e){hideLoading();console.error(e);toast('Erro ao duplicar receita.');}
 }
+async function salvarProdutoDuplicado(){
+  var origem=getProduto(dupOrigemId);
+  if(!origem){toast('Escolha o produto que será duplicado.');dupVoltar();return;}
+  var nome=document.getElementById('dup-nome').value.trim();
+  if(!nome){toast('Informe o nome do novo produto.');return;}
+  if(nomeProdutoExiste(nome,null)){toast('Já existe um produto com esse nome.');return;}
+  var novoId=uid();
+  var componentes=JSON.parse(JSON.stringify(origem.componentes||[]));
+  var produtoRow={id:novoId,nome:nome,categoria:origem.categoria||''};
+  try{
+    showLoading('Duplicando...');
+    await persistirProduto(produtoRow,componentes);
+    aplicarProdutoLocal({id:novoId,nome:nome,categoria:produtoRow.categoria,componentes:componentes});
+    hideLoading();
+    closeModal('modal-duplicar');
+    renderProdutos();renderOperacao();
+    toast('Produto duplicado!');
+    openModalProduto(getProduto(novoId));
+  }catch(e){hideLoading();console.error(e);toast('Erro ao duplicar produto.');}
+}
 
 // ===== OPERAÇÃO =====
 function getReceita(id){return db.receitas.find(function(x){return x.id===id;});}
-// Regra de três a partir da massa total: cada ingrediente mantém sua proporção
-// dentro da receita, seja ela em % ou em gramas.
-function calcOperacao(receita,qtd){
-  var massaTotal=(receita.porcao||0)*(qtd||0);
-  var ingredientes=ordenarIngredientes(receita.ingredientes||[]);
-  var total=somaQtd(ingredientes);
-  var itens=ingredientes.map(function(ing){
+// Distribui X gramas de um preparo entre os ingredientes dele, mantendo a proporção
+// da receita (funciona igual para receitas em % e em gramas).
+function expandirPreparo(rec,gramas){
+  var ings=ordenarIngredientes(rec.ingredientes||[]);
+  var soma=somaQtd(ings);
+  return ings.map(function(ing){
     var insumo=getInsumo(ing.insumoId);
-    var gramas=total>0?((parseFloat(ing.quantidade)||0)/total*massaTotal):0;
-    var custo=null;
-    if(insumo&&insumo.unidadeMedida==='g'&&insumo.tamanho>0)custo=gramas*(insumo.valor/insumo.tamanho);
-    return {nome:insumo?insumo.item:'insumo removido',gramas:gramas,custo:custo,isBase:!!ing.isBase};
+    var g=soma>0?((parseFloat(ing.quantidade)||0)/soma*gramas):0;
+    return {nome:insumo?insumo.item:'insumo removido',gramas:g,custo:custoDeGramas(insumo,g),isBase:!!ing.isBase};
   });
-  return {
-    massaTotal:massaTotal,
-    itens:itens,
-    custoTotal:itens.reduce(function(s,i){return s+(i.custo||0);},0),
-    algumCusto:itens.some(function(i){return i.custo!=null;}),
-    completoCusto:itens.length>0&&itens.every(function(i){return i.custo!=null;})
-  };
+}
+// Monta o batimento: cada preparo vira um grupo com seus ingredientes,
+// e os insumos diretos do produto viram o grupo de montagem.
+function calcOperacaoAlvo(tipo,id,qtd){
+  var nome,sub,componentes;
+  if(tipo==='produto'){
+    var p=getProduto(id);
+    if(!p)return null;
+    nome=p.nome;componentes=p.componentes||[];
+    sub='produto · '+fmtPeso(calcProduto(p).pesoUn)+' por unidade'+(p.categoria?' · '+p.categoria:'');
+  }else{
+    var r=getReceita(id);
+    if(!r)return null;
+    nome=r.nome;componentes=[{tipo:'receita',refId:r.id,quantidade:r.porcao||0}];
+    sub='preparo · porção de '+fmtNum(r.porcao)+' g por unidade'+(r.categoria?' · '+r.categoria:'');
+  }
+  var grupos=[],montagem=[],pesoTotal=0;
+  componentes.forEach(function(c){
+    var g=(parseFloat(c.quantidade)||0)*(qtd||0);
+    pesoTotal+=g;
+    if(c.tipo==='receita'){
+      var rec=getReceita(c.refId);
+      grupos.push({titulo:rec?rec.nome:'preparo removido',total:g,montagem:false,itens:rec?expandirPreparo(rec,g):[]});
+    }else{
+      var ins=getInsumo(c.refId);
+      montagem.push({nome:ins?ins.item:'insumo removido',gramas:g,custo:custoDeGramas(ins,g)});
+    }
+  });
+  if(montagem.length){
+    grupos.push({titulo:'Montagem',montagem:true,itens:montagem,
+      total:montagem.reduce(function(s,i){return s+i.gramas;},0)});
+  }
+  var todos=[];
+  grupos.forEach(function(g){g.itens.forEach(function(i){todos.push(i);});});
+  return {nome:nome,sub:sub,grupos:grupos,pesoTotal:pesoTotal,
+    custoTotal:todos.reduce(function(s,i){return s+(i.custo||0);},0),
+    algumCusto:todos.some(function(i){return i.custo!=null;}),
+    completoCusto:todos.length>0&&todos.every(function(i){return i.custo!=null;})};
+}
+function opAlvoValido(){
+  if(opTipo==='produto')return !!getProduto(opId);
+  if(opTipo==='receita')return !!getReceita(opId);
+  return false;
 }
 function renderOperacao(){
-  if(opReceitaId&&getReceita(opReceitaId))renderOpDetalhe();
-  else{opReceitaId=null;renderOpLista();}
+  if(opAlvoValido())renderOpDetalhe();
+  else{opTipo=null;opId=null;renderOpLista();}
 }
-function opVoltar(){opReceitaId=null;renderOpLista();}
-function opSelecionar(id){opReceitaId=id;opQtd=1;opChecked={};renderOpDetalhe();}
+function opVoltar(){opTipo=null;opId=null;renderOpLista();}
+function opSelecionar(tipo,id){opTipo=tipo;opId=id;opQtd=1;opChecked={};renderOpDetalhe();}
 function renderOpLista(){
   document.getElementById('op-lista-view').style.display='block';
   document.getElementById('op-detalhe-view').style.display='none';
   var el=document.getElementById('op-lista');
-  var list=db.receitas.slice().sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
-  if(!list.length){
-    el.innerHTML='<div class="empty-state"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polygon points="10.5 8.5 16 12 10.5 15.5" fill="currentColor"/></svg><p>Nenhuma receita cadastrada.<br>Cadastre uma receita para usar aqui.</p></div>';
+  var itens=[];
+  db.produtos.forEach(function(p){
+    itens.push({tipo:'produto',id:p.id,nome:p.nome,pronto:p.componentes.length>0,
+      sub:p.componentes.length
+        ?('produto · '+fmtPeso(calcProduto(p).pesoUn)+' por unidade'+(p.categoria?' · '+p.categoria:''))
+        :'produto sem componentes — monte ele na aba Produtos'});
+  });
+  db.receitas.forEach(function(r){
+    itens.push({tipo:'receita',id:r.id,nome:r.nome,pronto:r.porcao>0,
+      sub:r.porcao>0
+        ?('preparo · porção de '+fmtNum(r.porcao)+' g'+(r.categoria?' · '+r.categoria:''))
+        :'preparo · defina a porção nesta receita para usar aqui'});
+  });
+  itens.sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
+  if(!itens.length){
+    el.innerHTML='<div class="empty-state"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polygon points="10.5 8.5 16 12 10.5 15.5" fill="currentColor"/></svg><p>Nada para produzir ainda.<br>Cadastre um produto ou uma receita com porção.</p></div>';
     return;
   }
   el.innerHTML='';
-  list.forEach(function(r){
-    var temPorcao=r.porcao>0;
+  itens.forEach(function(it){
     var btn=document.createElement('button');
     btn.className='op-card';
     btn.type='button';
-    btn.disabled=!temPorcao;
-    btn.innerHTML='<div style="flex:1;min-width:0"><div class="card-name">'+esc(r.nome)+'</div>'+
-      '<div class="op-card-sub">'+(temPorcao
-        ?('porção de '+fmtNum(r.porcao)+' g'+(r.categoria?' · '+esc(r.categoria):''))
-        :'defina a porção nesta receita para usar aqui')+'</div></div>'+
-      (temPorcao?'<svg class="icon" viewBox="0 0 24 24" style="width:18px;height:18px;color:var(--text3)"><polyline points="9 18 15 12 9 6"/></svg>':'');
-    if(temPorcao)btn.addEventListener('click',(function(id){return function(){opSelecionar(id);};})(r.id));
+    btn.disabled=!it.pronto;
+    btn.innerHTML='<div style="flex:1;min-width:0"><div class="card-name">'+esc(it.nome)+'</div>'+
+      '<div class="op-card-sub">'+esc(it.sub)+'</div></div>'+
+      (it.pronto?'<svg class="icon" viewBox="0 0 24 24" style="width:18px;height:18px;color:var(--text3)"><polyline points="9 18 15 12 9 6"/></svg>':'');
+    if(it.pronto)btn.addEventListener('click',(function(tipo,id){return function(){opSelecionar(tipo,id);};})(it.tipo,it.id));
     el.appendChild(btn);
   });
 }
 function renderOpDetalhe(){
-  var r=getReceita(opReceitaId);
-  if(!r){opVoltar();return;}
+  var c=calcOperacaoAlvo(opTipo,opId,opQtd);
+  if(!c){opVoltar();return;}
   document.getElementById('op-lista-view').style.display='none';
   document.getElementById('op-detalhe-view').style.display='block';
-  var c=calcOperacao(r,opQtd);
-  var linhas=c.itens.map(function(it,i){
-    return '<div class="op-ing'+(opChecked[i]?' done':'')+'" data-op-i="'+i+'">'+
-      '<div class="op-check"><svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg></div>'+
-      '<div class="op-ing-nome">'+esc(it.nome)+(it.isBase?'<span class="op-ing-base">base</span>':'')+'</div>'+
-      '<div class="op-ing-peso" data-op-peso="'+i+'">'+fmtPeso(it.gramas)+'</div>'+
+  var i=0;
+  var grupos=c.grupos.map(function(g,gi){
+    var linhas=g.itens.map(function(it){
+      var idx=i++;
+      return '<div class="op-ing'+(opChecked[idx]?' done':'')+'" data-op-i="'+idx+'">'+
+        '<div class="op-check"><svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg></div>'+
+        '<div class="op-ing-nome">'+esc(it.nome)+(it.isBase?'<span class="op-ing-base">base</span>':'')+'</div>'+
+        '<div class="op-ing-peso" data-op-peso="'+idx+'">'+fmtPeso(it.gramas)+'</div>'+
+      '</div>';
+    }).join('');
+    return '<div class="op-grupo'+(g.montagem?' montagem':'')+'">'+
+      '<div class="op-grupo-head"><span>'+esc(g.titulo)+'</span><b data-op-grupo="'+gi+'">'+fmtPeso(g.total)+'</b></div>'+
+      (linhas||'<div style="font-size:12px;color:var(--text2);padding:2px">Sem ingredientes cadastrados neste preparo.</div>')+
     '</div>';
   }).join('');
   document.getElementById('op-detalhe').innerHTML=
-    '<div class="op-title">'+esc(r.nome)+'</div>'+
-    '<div class="op-sub">porção de '+fmtNum(r.porcao)+' g por unidade'+(r.categoria?' · '+esc(r.categoria):'')+'</div>'+
+    '<div class="op-title">'+esc(c.nome)+'</div>'+
+    '<div class="op-sub">'+esc(c.sub)+'</div>'+
     '<div class="op-qty-box"><div class="op-qty-row">'+
       '<button class="op-step" type="button" id="op-menos" aria-label="Menos uma unidade">−</button>'+
       '<input class="op-qty-input" id="op-qtd" type="number" inputmode="numeric" min="1" step="1" value="'+opQtd+'">'+
       '<button class="op-step" type="button" id="op-mais" aria-label="Mais uma unidade">+</button>'+
     '</div><div class="op-qty-label">unidades a produzir</div></div>'+
-    '<div class="op-massa"><span>Massa total</span><b id="op-massa-valor">'+fmtPeso(c.massaTotal)+'</b></div>'+
-    linhas+
+    '<div class="op-massa"><span>Peso total</span><b id="op-massa-valor">'+fmtPeso(c.pesoTotal)+'</b></div>'+
+    grupos+
     '<div class="op-foot" id="op-foot"></div>';
   atualizarOpFoot(c);
 }
@@ -1002,14 +1383,18 @@ function atualizarOpFoot(c){
   el.innerHTML='<span>Custo estimado<b>'+custoStr+'</b></span><span style="text-align:right">Por unidade<b>'+custoUn+'</b></span>';
 }
 function atualizarOpValores(){
-  var r=getReceita(opReceitaId);
-  if(!r)return;
-  var c=calcOperacao(r,opQtd);
+  var c=calcOperacaoAlvo(opTipo,opId,opQtd);
+  if(!c)return;
   var massaEl=document.getElementById('op-massa-valor');
-  if(massaEl)massaEl.textContent=fmtPeso(c.massaTotal);
-  c.itens.forEach(function(it,i){
-    var el=document.querySelector('[data-op-peso="'+i+'"]');
-    if(el)el.textContent=fmtPeso(it.gramas);
+  if(massaEl)massaEl.textContent=fmtPeso(c.pesoTotal);
+  var i=0;
+  c.grupos.forEach(function(g,gi){
+    var gEl=document.querySelector('[data-op-grupo="'+gi+'"]');
+    if(gEl)gEl.textContent=fmtPeso(g.total);
+    g.itens.forEach(function(it){
+      var el=document.querySelector('[data-op-peso="'+(i++)+'"]');
+      if(el)el.textContent=fmtPeso(it.gramas);
+    });
   });
   atualizarOpFoot(c);
 }
@@ -1087,7 +1472,7 @@ document.addEventListener('visibilitychange',function(){
 
 // ===== BACKUP =====
 function exportarDados(){
-  var payload={insumos:db.insumos,receitas:db.receitas};
+  var payload={insumos:db.insumos,receitas:db.receitas,produtos:db.produtos};
   var json=JSON.stringify(payload,null,2);
   var blob=new Blob([json],{type:'application/json'});
   var url=URL.createObjectURL(blob);
@@ -1116,6 +1501,10 @@ function importarDados(){
             await sbInsertMany('receita_ingredientes',rows);
           }
         }
+        for(var pr of (dados.produtos||[])){
+          var pid=pr.id||uid();
+          await persistirProduto({id:pid,nome:pr.nome,categoria:pr.categoria||''},(pr.componentes||[]).filter(function(c){return c.refId&&c.quantidade>0;}));
+        }
         await loadDB();
         toast('Backup restaurado!');
       }catch(err){hideLoading();console.error(err);toast('Erro ao restaurar: '+err.message);}
@@ -1129,6 +1518,7 @@ function importarDados(){
 (async function(){
   updateWakeStatus();
   armarWakeLock();
+  renderInsumos();renderReceitas();renderProdutos();renderOperacao();
   await loadDB();
 })();
 </script>
