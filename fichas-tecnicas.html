@@ -414,6 +414,10 @@ function fmtPeso(g){
 }
 
 // ===== SUPABASE (mesmo projeto do app de Gestão — tabelas próprias, sem relação com clientes/produtos/pedidos) =====
+// ATENÇÃO: o app de Gestão já tem uma tabela "produtos" neste mesmo banco.
+// Por isso as tabelas de produto deste módulo levam o prefixo fichas_.
+// Tabelas usadas aqui: insumos, receitas, receita_ingredientes,
+// fichas_produtos, fichas_produto_componentes.
 var SB_URL='https://wphtzeknvbgarrxcndvk.supabase.co';
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndwaHR6ZWtudmJnYXJyeGNuZHZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNDY3MjcsImV4cCI6MjA5NzcyMjcyN30.9MC1VlGnt4ICDRMbnmKWEpwVM2zEEWDFxzXnNreWTjI';
 function sbHeaders(extra){return Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},extra||{});}
@@ -532,8 +536,8 @@ async function loadDB(){
       sbGet('insumos','item.asc'),
       sbGet('receitas','nome.asc'),
       sbGet('receita_ingredientes','criado_em.asc'),
-      sbGet('produtos','nome.asc'),
-      sbGet('produto_componentes','ordem.asc')
+      sbGet('fichas_produtos','nome.asc'),
+      sbGet('fichas_produto_componentes','ordem.asc')
     ]);
     var insumosRaw=results[0],receitasRaw=results[1],ingredientesRaw=results[2],produtosRaw=results[3],componentesRaw=results[4];
     db.insumos=insumosRaw.map(function(r){return {id:r.id,item:r.item,marca:r.marca||'',tamanho:+r.tamanho||0,unidadeMedida:r.unidade_medida||'g',valor:+r.valor||0};});
@@ -1191,8 +1195,8 @@ function updateProdutoSummary(){
   });
 }
 async function persistirProduto(produtoRow,componentes){
-  await sbUpsert('produtos',produtoRow);
-  await sbDeleteWhere('produto_componentes','produto_id',produtoRow.id);
+  await sbUpsert('fichas_produtos',produtoRow);
+  await sbDeleteWhere('fichas_produto_componentes','produto_id',produtoRow.id);
   if(componentes.length){
     var rows=componentes.map(function(c,i){return {
       id:uid(),produto_id:produtoRow.id,
@@ -1200,7 +1204,7 @@ async function persistirProduto(produtoRow,componentes){
       receita_id:c.tipo==='receita'?c.refId:null,
       quantidade:c.quantidade,unidade:unidadeComponente(c),ordem:i
     };});
-    await sbInsertMany('produto_componentes',rows);
+    await sbInsertMany('fichas_produto_componentes',rows);
   }
 }
 function aplicarProdutoLocal(local){
@@ -1230,7 +1234,7 @@ async function deleteProduto(id){
   if(!ok)return;
   try{
     showLoading('Removendo...');
-    await sbDelete('produtos',id);
+    await sbDelete('fichas_produtos',id);
     db.produtos=db.produtos.filter(function(x){return x.id!==id;});
     if(opTipo==='produto'&&opId===id){opTipo=null;opId=null;}
     hideLoading();renderProdutos();renderOperacao();toast('Produto removido.');
